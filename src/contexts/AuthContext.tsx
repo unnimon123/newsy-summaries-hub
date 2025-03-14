@@ -1,4 +1,3 @@
-
 import { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Session, User } from "@supabase/supabase-js";
@@ -64,7 +63,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Handle auth callback for deep linking
   useEffect(() => {
     const handleAuthCallback = async () => {
       if (location.pathname === '/auth/callback') {
@@ -209,9 +207,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
-        options: {
-          redirectTo: getRedirectUrl(redirectUrl)
-        }
       });
 
       if (error) throw error;

@@ -25,13 +25,18 @@ export default function AuthCallback() {
           // We have a session, redirect to the app
           toast.success("Authentication successful");
           
-          // For mobile, we might want to send a message to the mobile app
-          if (window.location.href.includes("newsy-app://")) {
-            // This would be handled by the mobile app's deep link handler
-            console.log("Mobile auth successful");
-          }
+          // For mobile, we handle deep linking
+          const isMobileDeepLink = window.location.href.includes("newsy-app://");
           
-          navigate("/");
+          if (isMobileDeepLink) {
+            // This would be handled by the mobile app's deep link handler
+            console.log("Mobile auth successful via deep link");
+            // Mobile apps typically handle this redirection internally
+            // This code executes in the web context of the auth callback
+          } else {
+            // Regular web flow
+            navigate("/");
+          }
         } else {
           // No session found, redirect to login
           navigate("/auth/login");
