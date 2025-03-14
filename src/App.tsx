@@ -4,11 +4,17 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "@/contexts/AuthContext";
+import ProtectedRoute from "@/components/ProtectedRoute";
+import AdminRoute from "@/components/AdminRoute";
 import Index from "./pages/Index";
 import NewsManagement from "./pages/NewsManagement";
 import Notifications from "./pages/Notifications";
 import Analytics from "./pages/Analytics";
 import NotFound from "./pages/NotFound";
+import Login from "./pages/Auth/Login";
+import Register from "./pages/Auth/Register";
+import Profile from "./pages/Profile";
 
 const queryClient = new QueryClient();
 
@@ -18,14 +24,29 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/news" element={<NewsManagement />} />
-          <Route path="/notifications" element={<Notifications />} />
-          <Route path="/analytics" element={<Analytics />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <AuthProvider>
+          <Routes>
+            {/* Auth routes */}
+            <Route path="/auth/login" element={<Login />} />
+            <Route path="/auth/register" element={<Register />} />
+            
+            {/* Protected routes */}
+            <Route element={<ProtectedRoute />}>
+              <Route path="/" element={<Index />} />
+              <Route path="/profile" element={<Profile />} />
+              <Route path="/notifications" element={<Notifications />} />
+              
+              {/* Admin-only routes */}
+              <Route element={<AdminRoute />}>
+                <Route path="/news" element={<NewsManagement />} />
+                <Route path="/analytics" element={<Analytics />} />
+              </Route>
+            </Route>
+            
+            {/* Catch-all route */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
