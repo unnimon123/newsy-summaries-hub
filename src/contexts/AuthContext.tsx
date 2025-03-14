@@ -2,7 +2,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Session, User } from "@supabase/supabase-js";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { Json } from "@/integrations/supabase/types";
 
@@ -25,14 +25,35 @@ type AuthContextType = {
   user: User | null;
   profile: Profile | null;
   userRole: UserRole | null;
-  signUp: (email: string, password: string) => Promise<void>;
-  signIn: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string, redirectUrl?: string) => Promise<void>;
+  signIn: (email: string, password: string, redirectUrl?: string) => Promise<void>;
   signOut: () => Promise<void>;
   loading: boolean;
   isAdmin: boolean;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+// Check if we're in a mobile environment
+const isMobileApp = () => {
+  // This is a basic check - in a real app, you might use something like react-native-device-info
+  const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera;
+  return /android|iphone|ipad|ipod/i.test(userAgent.toLowerCase());
+};
+
+// Get app-specific redirect URL
+const getRedirectUrl = (providedUrl?: string) => {
+  if (providedUrl) return providedUrl;
+  
+  if (isMobileApp()) {
+    // For mobile deep linking, use a custom URL scheme
+    // Replace with your actual app scheme
+    return 'newsy-app://auth/callback';
+  }
+  
+  // Web fallback
+  return window.location.origin + '/auth/callback';
+};
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
@@ -41,6 +62,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Handle auth callback for deep linking
+  useEffect(() => {
+    const handleAuthCallback = async () => {
+      if (location.pathname === '/auth/callback') {
+        const { hash, search } = window.location;
+        if (hash || search) {
+          // Process the auth callback
+          const { data, error } = await supabase.auth.getSession();
+          
+          if (error) {
+            console.error('Error during auth callback:', error);
+            toast.error('Authentication failed');
+            navigate('/auth/login');
+            return;
+          }
+          
+          if (data.session) {
+            toast.success('Authentication successful');
+            navigate('/');
+          }
+        }
+      }
+    };
+    
+    handleAuthCallback();
+  }, [location.pathname, navigate]);
 
   useEffect(() => {
     // Set up the initial session and subscribe to auth changes
@@ -132,12 +181,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  async function signUp(email: string, password: string) {
+  async function signUp(email: string, password: string, redirectUrl?: string) {
     try {
       setLoading(true);
       const { error } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          emailRedirectTo: getRedirectUrl(redirectUrl)
+        }
       });
 
       if (error) throw error;
@@ -151,12 +203,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  async function signIn(email: string, password: string) {
+  async function signIn(email: string, password: string, redirectUrl?: string) {
     try {
       setLoading(true);
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
+        options: {
+          redirectTo: getRedirectUrl(redirectUrl)
+        }
       });
 
       if (error) throw error;
