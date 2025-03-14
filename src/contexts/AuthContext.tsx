@@ -94,8 +94,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         username: data.username,
         avatar_url: data.avatar_url,
         notification_preferences: data.notification_preferences ? {
-          push: Boolean(data.notification_preferences.push),
-          email: Boolean(data.notification_preferences.email)
+          push: typeof data.notification_preferences === 'object' && 
+                data.notification_preferences !== null && 
+                'push' in data.notification_preferences 
+                ? Boolean(data.notification_preferences.push) 
+                : true,
+          email: typeof data.notification_preferences === 'object' && 
+                 data.notification_preferences !== null && 
+                 'email' in data.notification_preferences 
+                 ? Boolean(data.notification_preferences.email) 
+                 : false
         } : null
       };
 
