@@ -11,6 +11,20 @@ import { Clock, Send, Trash2, User } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
+// Define the interface for notifications as they come from Supabase
+interface SupabaseNotification {
+  id: string;
+  title: string;
+  body: string;
+  target_audience: string;
+  link_to_article: string | null;
+  sent_at: string | null;
+  scheduled_for: string | null;
+  created_at: string;
+  created_by: string | null;
+}
+
+// Interface for our frontend notification model
 interface NotificationWithId extends NotificationData {
   id: string;
   sent_at?: string;
@@ -25,6 +39,21 @@ const Notifications = () => {
   useEffect(() => {
     fetchNotifications();
   }, []);
+
+  // Map Supabase notification to our frontend model
+  const mapSupabaseNotification = (data: SupabaseNotification): NotificationWithId => {
+    return {
+      id: data.id,
+      title: data.title,
+      body: data.body,
+      targetAudience: data.target_audience,
+      linkToArticle: data.link_to_article || undefined,
+      scheduleLater: !!data.scheduled_for,
+      scheduledTime: data.scheduled_for || undefined,
+      sent_at: data.sent_at || undefined,
+      scheduled_for: data.scheduled_for || undefined
+    };
+  };
 
   const fetchNotifications = async () => {
     setIsLoading(true);
@@ -48,8 +77,8 @@ const Notifications = () => {
 
       if (scheduledError) throw scheduledError;
 
-      setSentNotifications(sentData || []);
-      setScheduledNotifications(scheduledData || []);
+      setSentNotifications(sentData ? sentData.map(mapSupabaseNotification) : []);
+      setScheduledNotifications(scheduledData ? scheduledData.map(mapSupabaseNotification) : []);
     } catch (error) {
       console.error("Error fetching notifications:", error);
       toast.error("Failed to load notifications");
