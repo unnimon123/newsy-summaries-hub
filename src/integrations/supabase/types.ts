@@ -9,16 +9,256 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      article_analytics: {
+        Row: {
+          article_id: string
+          event_type: Database["public"]["Enums"]["event_type"]
+          id: string
+          metadata: Json | null
+          timestamp: string
+          user_id: string | null
+        }
+        Insert: {
+          article_id: string
+          event_type: Database["public"]["Enums"]["event_type"]
+          id?: string
+          metadata?: Json | null
+          timestamp?: string
+          user_id?: string | null
+        }
+        Update: {
+          article_id?: string
+          event_type?: Database["public"]["Enums"]["event_type"]
+          id?: string
+          metadata?: Json | null
+          timestamp?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "article_analytics_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "news"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      categories: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+        }
+        Relationships: []
+      }
+      news: {
+        Row: {
+          category_id: string | null
+          content: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          image_path: string | null
+          source_icon: string | null
+          source_name: string | null
+          source_url: string | null
+          status: Database["public"]["Enums"]["news_status"]
+          summary: string
+          title: string
+          updated_at: string
+          view_count: number
+        }
+        Insert: {
+          category_id?: string | null
+          content?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          image_path?: string | null
+          source_icon?: string | null
+          source_name?: string | null
+          source_url?: string | null
+          status?: Database["public"]["Enums"]["news_status"]
+          summary: string
+          title: string
+          updated_at?: string
+          view_count?: number
+        }
+        Update: {
+          category_id?: string | null
+          content?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          image_path?: string | null
+          source_icon?: string | null
+          source_name?: string | null
+          source_url?: string | null
+          status?: Database["public"]["Enums"]["news_status"]
+          summary?: string
+          title?: string
+          updated_at?: string
+          view_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "news_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          body: string
+          created_at: string
+          created_by: string | null
+          id: string
+          link_to_article: string | null
+          scheduled_for: string | null
+          sent_at: string | null
+          target_audience: string
+          title: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          link_to_article?: string | null
+          scheduled_for?: string | null
+          sent_at?: string | null
+          target_audience: string
+          title: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          link_to_article?: string | null
+          scheduled_for?: string | null
+          sent_at?: string | null
+          target_audience?: string
+          title?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          id: string
+          notification_preferences: Json | null
+          updated_at: string
+          username: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          id: string
+          notification_preferences?: Json | null
+          updated_at?: string
+          username?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          id?: string
+          notification_preferences?: Json | null
+          updated_at?: string
+          username?: string | null
+        }
+        Relationships: []
+      }
+      saved_articles: {
+        Row: {
+          article_id: string
+          id: string
+          is_read: boolean
+          saved_at: string
+          user_id: string
+        }
+        Insert: {
+          article_id: string
+          id?: string
+          is_read?: boolean
+          saved_at?: string
+          user_id: string
+        }
+        Update: {
+          article_id?: string
+          id?: string
+          is_read?: boolean
+          saved_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saved_articles_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "news"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["user_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["user_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["user_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      is_admin: {
+        Args: {
+          user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      event_type: "view" | "share" | "save"
+      news_status: "draft" | "published"
+      user_role: "admin" | "user"
     }
     CompositeTypes: {
       [_ in never]: never

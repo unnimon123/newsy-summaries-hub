@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import MainLayout from "@/components/MainLayout";
 import NotificationForm, { NotificationData } from "@/components/NotificationForm";
@@ -8,77 +8,98 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Clock, Send, Trash2, User } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+
+interface NotificationWithId extends NotificationData {
+  id: string;
+  sent_at?: string;
+  scheduled_for?: string;
+}
 
 const Notifications = () => {
-  // Mock data - in a real app this would come from Supabase
-  const [sentNotifications, setSentNotifications] = useState<(NotificationData & { id: string, sentAt: string })[]>([
-    {
-      id: "1",
-      title: "New Scholarships Available",
-      body: "Check out the latest scholarship opportunities for international students",
-      targetAudience: "scholarship",
-      linkToArticle: "https://example.com/scholarships",
-      scheduleLater: false,
-      sentAt: "2023-11-10T10:30:00Z",
-    },
-    {
-      id: "2",
-      title: "Visa Process Updates",
-      body: "Important changes to the student visa application process for US-bound students",
-      targetAudience: "visa",
-      linkToArticle: "https://example.com/visa-updates",
-      scheduleLater: false,
-      sentAt: "2023-11-05T14:20:00Z",
-    },
-    {
-      id: "3",
-      title: "New Immigration Pathways",
-      body: "Discover new immigration routes for skilled professionals in Canada",
-      targetAudience: "immigration",
-      linkToArticle: "https://example.com/immigration-canada",
-      scheduleLater: false,
-      sentAt: "2023-10-28T09:15:00Z",
-    },
-  ]);
+  const [sentNotifications, setSentNotifications] = useState<NotificationWithId[]>([]);
+  const [scheduledNotifications, setScheduledNotifications] = useState<NotificationWithId[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const [scheduledNotifications, setScheduledNotifications] = useState<(NotificationData & { id: string })[]>([
-    {
-      id: "4",
-      title: "New Course Recommendations",
-      body: "Explore our top picks for online courses starting next month",
-      targetAudience: "course",
-      linkToArticle: "https://example.com/recommended-courses",
-      scheduleLater: true,
-      scheduledTime: "2023-12-15T09:00:00Z",
-    },
-  ]);
+  useEffect(() => {
+    fetchNotifications();
+  }, []);
 
-  const handleSendNotification = (data: NotificationData) => {
-    // In a real app, this would be sent to Supabase
-    // Mocking an async operation
-    return new Promise<void>((resolve) => {
-      setTimeout(() => {
-        if (data.scheduleLater && data.scheduledTime) {
-          const newScheduled = {
-            ...data,
-            id: Date.now().toString(),
-          };
-          setScheduledNotifications([newScheduled, ...scheduledNotifications]);
-        } else {
-          const newSent = {
-            ...data,
-            id: Date.now().toString(),
-            sentAt: new Date().toISOString(),
-          };
-          setSentNotifications([newSent, ...sentNotifications]);
-        }
-        resolve();
-      }, 500);
-    });
+  const fetchNotifications = async () => {
+    setIsLoading(true);
+    try {
+      // Fetch sent notifications
+      const { data: sentData, error: sentError } = await supabase
+        .from('notifications')
+        .select('*')
+        .not('sent_at', 'is', null)
+        .order('sent_at', { ascending: false });
+
+      if (sentError) throw sentError;
+      
+      // Fetch scheduled notifications
+      const { data: scheduledData, error: scheduledError } = await supabase
+        .from('notifications')
+        .select('*')
+        .is('sent_at', null)
+        .not('scheduled_for', 'is', null)
+        .order('scheduled_for', { ascending: true });
+
+      if (scheduledError) throw scheduledError;
+
+      setSentNotifications(sentData || []);
+      setScheduledNotifications(scheduledData || []);
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+      toast.error("Failed to load notifications");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleDeleteScheduled = (id: string) => {
-    setScheduledNotifications(scheduledNotifications.filter((n) => n.id !== id));
+  const handleSendNotification = async (data: NotificationData) => {
+    try {
+      const notificationData = {
+        title: data.title,
+        body: data.body,
+        target_audience: data.targetAudience,
+        link_to_article: data.linkToArticle || null,
+        scheduled_for: data.scheduleLater ? data.scheduledTime : null,
+        sent_at: data.scheduleLater ? null : new Date().toISOString(),
+      };
+
+      const { error } = await supabase
+        .from('notifications')
+        .insert(notificationData);
+
+      if (error) throw error;
+      
+      // Refresh notifications list
+      await fetchNotifications();
+      
+      return Promise.resolve();
+    } catch (error) {
+      console.error("Error sending notification:", error);
+      return Promise.reject(error);
+    }
+  };
+
+  const handleDeleteScheduled = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      
+      setScheduledNotifications(scheduledNotifications.filter(n => n.id !== id));
+      toast.success("Scheduled notification cancelled");
+    } catch (error) {
+      console.error("Error deleting scheduled notification:", error);
+      toast.error("Failed to cancel scheduled notification");
+    }
   };
 
   const getAudienceLabel = (audience: string): string => {
@@ -118,7 +139,13 @@ const Notifications = () => {
             </TabsList>
             
             <TabsContent value="sent" className="mt-4 space-y-4">
-              {sentNotifications.length === 0 ? (
+              {isLoading ? (
+                <Card>
+                  <CardContent className="p-6 text-center">
+                    <p>Loading notifications...</p>
+                  </CardContent>
+                </Card>
+              ) : sentNotifications.length === 0 ? (
                 <Card>
                   <CardContent className="flex flex-col items-center justify-center p-6 text-center">
                     <Send className="h-12 w-12 text-gray-300" />
@@ -136,7 +163,7 @@ const Notifications = () => {
                         <div>
                           <CardTitle>{notification.title}</CardTitle>
                           <CardDescription className="mt-1">
-                            Sent: {formatDate(notification.sentAt)}
+                            Sent: {notification.sent_at && formatDate(notification.sent_at)}
                           </CardDescription>
                         </div>
                         <Badge variant="outline" className="bg-blue-50 text-blue-700">
@@ -166,7 +193,13 @@ const Notifications = () => {
             </TabsContent>
             
             <TabsContent value="scheduled" className="mt-4 space-y-4">
-              {scheduledNotifications.length === 0 ? (
+              {isLoading ? (
+                <Card>
+                  <CardContent className="p-6 text-center">
+                    <p>Loading scheduled notifications...</p>
+                  </CardContent>
+                </Card>
+              ) : scheduledNotifications.length === 0 ? (
                 <Card>
                   <CardContent className="flex flex-col items-center justify-center p-6 text-center">
                     <Clock className="h-12 w-12 text-gray-300" />
@@ -184,7 +217,7 @@ const Notifications = () => {
                         <div>
                           <CardTitle>{notification.title}</CardTitle>
                           <CardDescription className="mt-1">
-                            Scheduled: {notification.scheduledTime && formatDate(notification.scheduledTime)}
+                            Scheduled: {notification.scheduled_for && formatDate(notification.scheduled_for)}
                           </CardDescription>
                         </div>
                         <Badge variant="outline" className="bg-yellow-50 text-yellow-700">

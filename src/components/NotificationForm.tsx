@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,7 +15,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { toast } from "sonner";
 
 interface NotificationFormProps {
-  onSubmit: (data: NotificationData) => void;
+  onSubmit: (data: NotificationData) => Promise<void>;
 }
 
 export interface NotificationData {
@@ -95,7 +94,6 @@ const NotificationForm = ({ onSubmit }: NotificationFormProps) => {
     setIsSending(true);
     
     try {
-      // In a real app, we would submit to Supabase here
       await onSubmit(formData);
       
       toast.success(
