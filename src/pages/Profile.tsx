@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import MainLayout from "@/components/MainLayout";
 import { z } from "zod";
@@ -40,7 +40,7 @@ export default function Profile() {
   });
 
   // Update form when profile data loads
-  React.useEffect(() => {
+  useEffect(() => {
     if (profile) {
       form.reset({
         username: profile.username || "",

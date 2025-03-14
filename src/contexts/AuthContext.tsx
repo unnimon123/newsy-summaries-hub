@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Session, User } from "@supabase/supabase-js";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { Json } from "@/integrations/supabase/types";
 
 type Profile = {
   id: string;
@@ -87,7 +88,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return null;
       }
 
-      setProfile(data as Profile);
+      // Transform the notification_preferences from Json to our expected type
+      const transformedProfile: Profile = {
+        id: data.id,
+        username: data.username,
+        avatar_url: data.avatar_url,
+        notification_preferences: data.notification_preferences ? {
+          push: Boolean(data.notification_preferences.push),
+          email: Boolean(data.notification_preferences.email)
+        } : null
+      };
+
+      setProfile(transformedProfile);
     } catch (error) {
       console.error('Unexpected error fetching profile:', error);
     }
