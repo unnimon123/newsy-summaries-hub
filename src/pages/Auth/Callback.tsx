@@ -11,6 +11,12 @@ export default function AuthCallback() {
   useEffect(() => {
     const handleCallback = async () => {
       try {
+        console.log("Auth callback handling initiated");
+        
+        // Check if we're in a mobile deep link scenario
+        const isMobileDeepLink = window.location.href.includes("newsy-app://");
+        console.log("Is mobile deep link:", isMobileDeepLink);
+        
         // Check if we have a session
         const { data, error } = await supabase.auth.getSession();
         
@@ -23,10 +29,8 @@ export default function AuthCallback() {
 
         if (data.session) {
           // We have a session, redirect to the app
+          console.log("Session found, redirecting");
           toast.success("Authentication successful");
-          
-          // For mobile, we handle deep linking
-          const isMobileDeepLink = window.location.href.includes("newsy-app://");
           
           if (isMobileDeepLink) {
             // This would be handled by the mobile app's deep link handler
@@ -39,6 +43,7 @@ export default function AuthCallback() {
           }
         } else {
           // No session found, redirect to login
+          console.log("No session found, redirecting to login");
           navigate("/auth/login");
         }
       } catch (error) {
