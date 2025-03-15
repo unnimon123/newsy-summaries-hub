@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { PlusCircle, Search, Loader2 } from "lucide-react";
 import MainLayout from "@/components/MainLayout";
@@ -33,12 +32,18 @@ const NewsManagement = () => {
   const { data: categoriesData, isLoading: categoriesLoading } = useQuery({
     queryKey: ['categories'],
     queryFn: async () => {
+      console.log('Fetching categories from Supabase...');
       const { data, error } = await supabase
         .from('categories')
         .select('*')
         .order('name');
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching categories:', error);
+        throw error;
+      }
+      
+      console.log('Fetched categories:', data?.length || 0);
       return data;
     },
   });
@@ -47,6 +52,7 @@ const NewsManagement = () => {
   const { data: newsData, isLoading: newsLoading } = useQuery({
     queryKey: ['news', statusFilter],
     queryFn: async () => {
+      console.log(`Fetching news with status filter: ${statusFilter}`);
       let query = supabase
         .from('news')
         .select(`
@@ -68,7 +74,12 @@ const NewsManagement = () => {
       
       const { data, error } = await query;
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching news:', error);
+        throw error;
+      }
+      
+      console.log('Fetched news articles:', data?.length || 0);
       
       // Transform to match our NewsArticle interface
       return data.map(item => ({
@@ -87,8 +98,9 @@ const NewsManagement = () => {
   // Create article mutation
   const createArticleMutation = useMutation({
     mutationFn: async (article: NewsArticle) => {
+      console.log('Creating new article:', article);
       // Map our form data to the database schema
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('news')
         .insert({
           title: article.title,
@@ -100,12 +112,23 @@ const NewsManagement = () => {
           created_by: (await supabase.auth.getUser()).data.user?.id
         });
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error creating article:', error);
+        throw error;
+      }
+      
+      return data;
     },
     onSuccess: () => {
+      console.log('Article created successfully');
       queryClient.invalidateQueries({ queryKey: ['news'] });
       setShowForm(false);
+      toast.success('Article created successfully!');
     },
+    onError: (error) => {
+      console.error('Error in createArticleMutation:', error);
+      toast.error(`Failed to create article: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   });
 
   // Update article mutation
@@ -172,6 +195,7 @@ const NewsManagement = () => {
   });
 
   const handleCreateArticle = (article: NewsArticle) => {
+    console.log('Handling article creation:', article);
     createArticleMutation.mutate(article);
   };
 
@@ -202,7 +226,7 @@ const NewsManagement = () => {
   ];
 
   const isLoading = newsLoading || categoriesLoading;
-  const isFormSubmitting = createArticleMutation.isPending || updateArticleMutation.isPending;
+  const isFormSubmitting = createArticleMutation.isPending;
 
   return (
     <MainLayout>

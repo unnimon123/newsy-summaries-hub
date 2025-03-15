@@ -3,6 +3,8 @@ import React, { useState } from 'react';
 import { useNewsRealtime } from '@/hooks/useNewsRealtime';
 import { Card } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 
 type NewsItemProps = {
   id: string;
@@ -33,6 +35,18 @@ const NewsItem = ({ title, summary, image_path, created_at }: NewsItemProps) => 
   );
 };
 
+const NewsItemSkeleton = () => (
+  <Card className="mb-4 overflow-hidden">
+    <Skeleton className="w-full h-48" />
+    <div className="p-4">
+      <Skeleton className="h-6 w-3/4 mb-2" />
+      <Skeleton className="h-4 w-full mb-2" />
+      <Skeleton className="h-4 w-full mb-2" />
+      <Skeleton className="h-3 w-1/4" />
+    </div>
+  </Card>
+);
+
 export default function NewsRealtimeExample() {
   const { news, loading, error } = useNewsRealtime();
   const [refreshing, setRefreshing] = useState(false);
@@ -46,9 +60,10 @@ export default function NewsRealtimeExample() {
 
   if (loading && !refreshing) {
     return (
-      <div className="flex flex-col items-center justify-center p-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mb-4"></div>
-        <p>Loading news articles...</p>
+      <div className="flex flex-col space-y-4 p-4">
+        <NewsItemSkeleton />
+        <NewsItemSkeleton />
+        <NewsItemSkeleton />
       </div>
     );
   }
@@ -84,12 +99,12 @@ export default function NewsRealtimeExample() {
         )}
       </div>
       
-      <button 
+      <Button 
         onClick={handleRefresh}
-        className="mx-auto block mb-4 p-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
+        className="mx-auto block mb-4"
       >
         Refresh
-      </button>
+      </Button>
     </div>
   );
 }

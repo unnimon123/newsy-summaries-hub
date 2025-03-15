@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { RealtimeChannel } from '@supabase/supabase-js';
@@ -15,6 +16,8 @@ export function useNewsRealtime(initialNews: NewsItem[] = []) {
     const fetchNews = async () => {
       try {
         setLoading(true);
+        console.log('Fetching news articles from Supabase...');
+        
         const { data, error } = await supabase
           .from('news')
           .select('*')
@@ -22,14 +25,17 @@ export function useNewsRealtime(initialNews: NewsItem[] = []) {
           .order('created_at', { ascending: false });
 
         if (error) {
+          console.error('Error fetching news:', error);
           throw error;
         }
 
+        console.log('Fetched news articles:', data?.length || 0);
+        
         if (data) {
           setNews(data);
         }
       } catch (err) {
-        console.error('Error fetching news:', err);
+        console.error('Error in fetchNews:', err);
         setError(err instanceof Error ? err.message : 'An unknown error occurred');
       } finally {
         setLoading(false);

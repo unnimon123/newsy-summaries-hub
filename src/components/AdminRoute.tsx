@@ -14,5 +14,8 @@ export default function AdminRoute() {
     );
   }
 
+  // Add console.log for debugging
+  console.log("AdminRoute check - isAdmin:", isAdmin);
+
   return isAdmin ? <Outlet /> : <Navigate to="/" replace />;
 }
