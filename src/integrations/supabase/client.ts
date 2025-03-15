@@ -16,7 +16,8 @@ export const supabase = createClient<Database>(
   {
     realtime: {
       params: {
-        eventsPerSecond: 10
+        eventsPerSecond: 10,
+        realtimeTimeout: 30000 // Increased timeout for more reliable connections
       }
     }
   }
