@@ -18,12 +18,15 @@ import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
+// Define the news status type to match Supabase's enum
+type NewsStatus = "draft" | "published" | "all";
+
 const NewsManagement = () => {
   const [showForm, setShowForm] = useState(false);
   const [editingArticle, setEditingArticle] = useState<NewsArticle | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState<NewsStatus>("all");
   const queryClient = useQueryClient();
 
   // Fetch categories from Supabase
@@ -211,7 +214,7 @@ const NewsManagement = () => {
           </p>
         </div>
 
-        <Tabs defaultValue="all" onValueChange={status => setStatusFilter(status === 'all' ? 'all' : status)}>
+        <Tabs defaultValue="all" onValueChange={(value) => setStatusFilter(value as NewsStatus)}>
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <TabsList>
               <TabsTrigger value="all">All Articles</TabsTrigger>
