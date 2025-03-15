@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { Edit, Trash2 } from "lucide-react";
+import { Edit, Trash2, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
@@ -16,23 +16,45 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { NewsArticle } from "./NewsForm";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 interface NewsCardProps {
   article: NewsArticle;
   onEdit: (article: NewsArticle) => void;
   onDelete: (id: string) => void;
+  viewOnly?: boolean;
 }
 
-const NewsCard = ({ article, onEdit, onDelete }: NewsCardProps) => {
+const NewsCard = ({ article, onEdit, onDelete, viewOnly = false }: NewsCardProps) => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Fetch category information
+  const { data: categoryData } = useQuery({
+    queryKey: ['category', article.category],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('categories')
+        .select('name')
+        .eq('id', article.category)
+        .single();
+      
+      if (error) {
+        console.error('Error fetching category:', error);
+        return null;
+      }
+      
+      return data;
+    },
+    enabled: !!article.category,
+  });
 
   const handleDelete = async () => {
     if (!article.id) return;
     
     setIsDeleting(true);
     try {
-      // In a real app, we would delete from Supabase here
       await onDelete(article.id);
       toast.success("Article deleted successfully");
     } catch (error) {
@@ -44,7 +66,18 @@ const NewsCard = ({ article, onEdit, onDelete }: NewsCardProps) => {
     }
   };
 
-  const getCategoryLabel = (value: string): string => {
+  const handleOpenSource = () => {
+    if (article.sourceUrl) {
+      window.open(article.sourceUrl, '_blank');
+    }
+  };
+
+  const getCategoryLabel = (): string => {
+    if (categoryData) {
+      return categoryData.name;
+    }
+    
+    // Fallback mapping for demo purposes
     const categories: Record<string, string> = {
       education: "Foreign Education",
       visa: "Visas",
@@ -53,7 +86,7 @@ const NewsCard = ({ article, onEdit, onDelete }: NewsCardProps) => {
       immigration: "Immigration",
     };
     
-    return categories[value] || value;
+    return categories[article.category] || article.category;
   };
 
   const getCategoryColor = (value: string): string => {
@@ -84,9 +117,11 @@ const NewsCard = ({ article, onEdit, onDelete }: NewsCardProps) => {
             <div>
               <h3 className="font-semibold text-lg line-clamp-2">{article.title}</h3>
               <div className="flex items-center gap-2 mt-1">
-                <Badge variant="outline" className={getCategoryColor(article.category)}>
-                  {getCategoryLabel(article.category)}
-                </Badge>
+                {article.category && (
+                  <Badge variant="outline" className={getCategoryColor(article.category)}>
+                    {getCategoryLabel()}
+                  </Badge>
+                )}
                 {article.timestamp && (
                   <span className="text-xs text-gray-500">
                     {formatDate(article.timestamp)}
@@ -113,23 +148,40 @@ const NewsCard = ({ article, onEdit, onDelete }: NewsCardProps) => {
           )}
         </CardContent>
         <CardFooter className="pt-2 flex justify-between">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onEdit(article)}
-          >
-            <Edit size={16} className="mr-2" />
-            Edit
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
-            onClick={() => setDeleteDialogOpen(true)}
-          >
-            <Trash2 size={16} className="mr-2" />
-            Delete
-          </Button>
+          {viewOnly ? (
+            <>
+              {article.sourceUrl && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleOpenSource}
+                >
+                  <ExternalLink size={16} className="mr-2" />
+                  Visit Source
+                </Button>
+              )}
+            </>
+          ) : (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onEdit(article)}
+              >
+                <Edit size={16} className="mr-2" />
+                Edit
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+                onClick={() => setDeleteDialogOpen(true)}
+              >
+                <Trash2 size={16} className="mr-2" />
+                Delete
+              </Button>
+            </>
+          )}
         </CardFooter>
       </Card>
 

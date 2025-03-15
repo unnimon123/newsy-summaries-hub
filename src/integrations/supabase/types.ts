@@ -46,6 +46,7 @@ export type Database = {
       }
       categories: {
         Row: {
+          article_count: number | null
           created_at: string
           description: string | null
           id: string
@@ -53,6 +54,7 @@ export type Database = {
           name: string
         }
         Insert: {
+          article_count?: number | null
           created_at?: string
           description?: string | null
           id?: string
@@ -60,6 +62,7 @@ export type Database = {
           name: string
         }
         Update: {
+          article_count?: number | null
           created_at?: string
           description?: string | null
           id?: string
@@ -123,6 +126,41 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      news_audit_log: {
+        Row: {
+          action: string
+          changes: Json | null
+          id: string
+          news_id: string
+          timestamp: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          changes?: Json | null
+          id?: string
+          news_id: string
+          timestamp?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          changes?: Json | null
+          id?: string
+          news_id?: string
+          timestamp?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "news_audit_log_news_id_fkey"
+            columns: ["news_id"]
+            isOneToOne: false
+            referencedRelation: "news"
             referencedColumns: ["id"]
           },
         ]

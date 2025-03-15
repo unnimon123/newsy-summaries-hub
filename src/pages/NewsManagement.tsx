@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { PlusCircle, Search } from "lucide-react";
+import { PlusCircle, Search, Loader2 } from "lucide-react";
 import MainLayout from "@/components/MainLayout";
 import NewsForm, { NewsArticle } from "@/components/NewsForm";
 import NewsCard from "@/components/NewsCard";
@@ -15,109 +15,191 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 const NewsManagement = () => {
   const [showForm, setShowForm] = useState(false);
   const [editingArticle, setEditingArticle] = useState<NewsArticle | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const queryClient = useQueryClient();
 
-  // Mock data - in a real application this would come from Supabase
-  const [articles, setArticles] = useState<NewsArticle[]>([
-    {
-      id: "1",
-      title: "New UK Student Visa Changes for International Students",
-      summary: "The UK government has announced significant changes to the student visa system, affecting international students planning to study in the country starting from January 2024.",
-      imageUrl: "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?q=80&w=2069&auto=format&fit=crop",
-      sourceUrl: "https://example.com/uk-visa-changes",
-      category: "visa",
-      timestamp: "2023-11-10T10:30:00Z",
+  // Fetch categories from Supabase
+  const { data: categoriesData, isLoading: categoriesLoading } = useQuery({
+    queryKey: ['categories'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('categories')
+        .select('*')
+        .order('name');
+      
+      if (error) throw error;
+      return data;
     },
-    {
-      id: "2",
-      title: "Top 10 Scholarships for International Students in Canada",
-      summary: "Discover the most prestigious and generous scholarships available for international students looking to study in Canada in 2024.",
-      imageUrl: "https://images.unsplash.com/photo-1527891751199-7225231a68dd?q=80&w=2070&auto=format&fit=crop",
-      sourceUrl: "https://example.com/canada-scholarships",
-      category: "scholarship",
-      timestamp: "2023-11-05T14:20:00Z",
+  });
+
+  // Fetch news articles from Supabase
+  const { data: newsData, isLoading: newsLoading } = useQuery({
+    queryKey: ['news', statusFilter],
+    queryFn: async () => {
+      let query = supabase
+        .from('news')
+        .select(`
+          id, 
+          title, 
+          summary, 
+          image_path, 
+          source_url, 
+          category_id, 
+          status, 
+          created_at, 
+          view_count
+        `)
+        .order('created_at', { ascending: false });
+      
+      if (statusFilter !== 'all') {
+        query = query.eq('status', statusFilter);
+      }
+      
+      const { data, error } = await query;
+      
+      if (error) throw error;
+      
+      // Transform to match our NewsArticle interface
+      return data.map(item => ({
+        id: item.id,
+        title: item.title,
+        summary: item.summary,
+        imageUrl: item.image_path || "",
+        sourceUrl: item.source_url || "",
+        category: item.category_id || "",
+        timestamp: item.created_at,
+        viewCount: item.view_count
+      }));
     },
-    {
-      id: "3",
-      title: "Australia Expands Immigration Pathways for Skilled Workers",
-      summary: "The Australian government has announced new immigration pathways for skilled workers in high-demand industries, including technology, healthcare, and engineering.",
-      imageUrl: "https://images.unsplash.com/photo-1523482580672-f109ba8cb9be?q=80&w=2073&auto=format&fit=crop",
-      sourceUrl: "https://example.com/australia-immigration",
-      category: "immigration",
-      timestamp: "2023-10-28T09:15:00Z",
+  });
+
+  // Create article mutation
+  const createArticleMutation = useMutation({
+    mutationFn: async (article: NewsArticle) => {
+      // Map our form data to the database schema
+      const { error } = await supabase
+        .from('news')
+        .insert({
+          title: article.title,
+          summary: article.summary,
+          image_path: article.imageUrl,
+          source_url: article.sourceUrl,
+          category_id: article.category,
+          status: 'draft',
+          created_by: (await supabase.auth.getUser()).data.user?.id
+        });
+      
+      if (error) throw error;
     },
-    {
-      id: "4",
-      title: "New Online Courses: Learn Data Science from Top Universities",
-      summary: "Several leading universities have launched affordable online data science programs designed for international students seeking to enhance their skills.",
-      imageUrl: "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?q=80&w=2070&auto=format&fit=crop",
-      sourceUrl: "https://example.com/data-science-courses",
-      category: "course",
-      timestamp: "2023-10-15T16:45:00Z",
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['news'] });
+      setShowForm(false);
     },
-    {
-      id: "5",
-      title: "Germany Removes Language Requirements for Select Master's Programs",
-      summary: "Several German universities are now offering Master's programs taught entirely in English with no German language requirements, making education more accessible.",
-      imageUrl: "https://images.unsplash.com/photo-1527866959252-deab85ef7d1b?q=80&w=2070&auto=format&fit=crop",
-      sourceUrl: "https://example.com/germany-education",
-      category: "education",
-      timestamp: "2023-10-08T11:30:00Z",
+  });
+
+  // Update article mutation
+  const updateArticleMutation = useMutation({
+    mutationFn: async (article: NewsArticle) => {
+      if (!article.id) return;
+      
+      // Map our form data to the database schema
+      const { error } = await supabase
+        .from('news')
+        .update({
+          title: article.title,
+          summary: article.summary,
+          image_path: article.imageUrl,
+          source_url: article.sourceUrl,
+          category_id: article.category,
+        })
+        .eq('id', article.id);
+      
+      if (error) throw error;
     },
-  ]);
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['news'] });
+      setEditingArticle(null);
+    },
+  });
+
+  // Delete article mutation
+  const deleteArticleMutation = useMutation({
+    mutationFn: async (id: string) => {
+      // Get the image path first
+      const { data: article } = await supabase
+        .from('news')
+        .select('image_path')
+        .eq('id', id)
+        .single();
+      
+      // Delete the article
+      const { error } = await supabase
+        .from('news')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+      
+      // If there's an image stored in Supabase, delete it
+      if (article?.image_path && article.image_path.includes('news-images')) {
+        try {
+          // Extract the path after the bucket name in the URL
+          const urlParts = article.image_path.split('news-images/');
+          if (urlParts.length > 1) {
+            const filePath = urlParts[1];
+            await supabase.storage.from('news-images').remove([filePath]);
+          }
+        } catch (err) {
+          console.error('Failed to delete image from storage:', err);
+          // Continue anyway as the article is already deleted
+        }
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['news'] });
+    },
+  });
 
   const handleCreateArticle = (article: NewsArticle) => {
-    // In a real app, this would be sent to Supabase
-    const newArticle = {
-      ...article,
-      id: Date.now().toString(),
-      timestamp: new Date().toISOString(),
-    };
-    
-    setArticles([newArticle, ...articles]);
-    setShowForm(false);
+    createArticleMutation.mutate(article);
   };
 
   const handleUpdateArticle = (article: NewsArticle) => {
-    // In a real app, this would be sent to Supabase
-    if (!article.id) return;
-    
-    setArticles(articles.map((a) => (a.id === article.id ? article : a)));
-    setEditingArticle(null);
+    updateArticleMutation.mutate(article);
   };
 
-  const handleDeleteArticle = (id: string) => {
-    // In a real app, this would be sent to Supabase
-    // Mocking an async operation
-    return new Promise<void>((resolve) => {
-      setTimeout(() => {
-        setArticles(articles.filter((a) => a.id !== id));
-        resolve();
-      }, 500);
-    });
+  const handleDeleteArticle = async (id: string) => {
+    return deleteArticleMutation.mutateAsync(id);
   };
 
-  const filteredArticles = articles.filter((article) => {
+  // Apply filters to the articles
+  const filteredArticles = newsData?.filter((article) => {
     const matchesSearch = article.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           article.summary.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = categoryFilter === "all" || article.category === categoryFilter;
     
     return matchesSearch && matchesCategory;
-  });
+  }) || [];
 
+  // Construct categories array for the filter dropdown
   const categories = [
     { value: "all", label: "All Categories" },
-    { value: "education", label: "Foreign Education" },
-    { value: "visa", label: "Visas" },
-    { value: "scholarship", label: "Scholarships" },
-    { value: "course", label: "Courses" },
-    { value: "immigration", label: "Immigration" },
+    ...(categoriesData?.map(cat => ({
+      value: cat.id,
+      label: cat.name
+    })) || []),
   ];
+
+  const isLoading = newsLoading || categoriesLoading;
+  const isFormSubmitting = createArticleMutation.isPending || updateArticleMutation.isPending;
 
   return (
     <MainLayout>
@@ -129,14 +211,14 @@ const NewsManagement = () => {
           </p>
         </div>
 
-        <Tabs defaultValue="all">
+        <Tabs defaultValue="all" onValueChange={status => setStatusFilter(status === 'all' ? 'all' : status)}>
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <TabsList>
               <TabsTrigger value="all">All Articles</TabsTrigger>
-              <TabsTrigger value="drafts">Drafts</TabsTrigger>
+              <TabsTrigger value="draft">Drafts</TabsTrigger>
               <TabsTrigger value="published">Published</TabsTrigger>
             </TabsList>
-            <Button onClick={() => setShowForm(true)}>
+            <Button onClick={() => setShowForm(true)} disabled={showForm}>
               <PlusCircle className="mr-2 h-4 w-4" />
               New Article
             </Button>
@@ -187,7 +269,11 @@ const NewsManagement = () => {
               </Select>
             </div>
 
-            {filteredArticles.length === 0 ? (
+            {isLoading ? (
+              <div className="flex justify-center items-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : filteredArticles.length === 0 ? (
               <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-8 text-center">
                 <h3 className="mt-2 text-lg font-semibold">No articles found</h3>
                 <p className="mt-1 text-sm text-gray-500">
@@ -220,22 +306,56 @@ const NewsManagement = () => {
             )}
           </TabsContent>
 
-          <TabsContent value="drafts">
-            <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-8 text-center">
-              <h3 className="mt-2 text-lg font-semibold">No drafts</h3>
-              <p className="mt-1 text-sm text-gray-500">
-                Drafts will appear here once you start saving them.
-              </p>
-            </div>
+          <TabsContent value="draft">
+            {isLoading ? (
+              <div className="flex justify-center items-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : filteredArticles.length === 0 ? (
+              <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-8 text-center">
+                <h3 className="mt-2 text-lg font-semibold">No draft articles</h3>
+                <p className="mt-1 text-sm text-gray-500">
+                  Draft articles will appear here.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {filteredArticles.map((article) => (
+                  <NewsCard
+                    key={article.id}
+                    article={article}
+                    onEdit={setEditingArticle}
+                    onDelete={handleDeleteArticle}
+                  />
+                ))}
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="published">
-            <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-8 text-center">
-              <h3 className="mt-2 text-lg font-semibold">Published articles</h3>
-              <p className="mt-1 text-sm text-gray-500">
-                In the full version, this tab will show only published articles.
-              </p>
-            </div>
+            {isLoading ? (
+              <div className="flex justify-center items-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : filteredArticles.length === 0 ? (
+              <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-8 text-center">
+                <h3 className="mt-2 text-lg font-semibold">No published articles</h3>
+                <p className="mt-1 text-sm text-gray-500">
+                  Published articles will appear here.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {filteredArticles.map((article) => (
+                  <NewsCard
+                    key={article.id}
+                    article={article}
+                    onEdit={setEditingArticle}
+                    onDelete={handleDeleteArticle}
+                  />
+                ))}
+              </div>
+            )}
           </TabsContent>
         </Tabs>
       </div>
