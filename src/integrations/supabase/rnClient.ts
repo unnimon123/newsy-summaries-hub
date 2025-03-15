@@ -34,6 +34,4 @@ export const supabase = createClient<Database>(
 );
 
 // For debugging in development
-if (__DEV__) {
-  console.log('Supabase client initialized in React Native');
-}
+console.log('Supabase client initialized for React Native');
