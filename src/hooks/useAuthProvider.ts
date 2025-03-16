@@ -53,6 +53,15 @@ export function useAuthProvider() {
     console.log("Auth provider initialization starting");
     let mounted = true;
     
+    // Safety timeout to prevent infinite loading
+    const safetyTimeout = setTimeout(() => {
+      if (mounted && !initialLoadDone) {
+        console.log("Safety timeout triggered: forcing initialLoadDone to true");
+        setLoading(false);
+        setInitialLoadDone(true);
+      }
+    }, 5000);
+    
     const initializeAuth = async () => {
       try {
         console.log("Getting session from Supabase");
@@ -93,6 +102,7 @@ export function useAuthProvider() {
           console.log("Auth initialization complete, setting loading to false");
           setLoading(false);
           setInitialLoadDone(true);
+          clearTimeout(safetyTimeout);
         }
       }
     };
@@ -113,6 +123,7 @@ export function useAuthProvider() {
             setUserRole(null);
             setInitialLoadDone(true);
             setLoading(false);
+            clearTimeout(safetyTimeout);
             
             // Redirect to login page after signing out
             if (location.pathname !== '/auth/login') {
@@ -133,15 +144,18 @@ export function useAuthProvider() {
               
               setInitialLoadDone(true);
               setLoading(false);
+              clearTimeout(safetyTimeout);
             } catch (error) {
               console.error("Error fetching profile/role during auth change:", error);
               setLoading(false);
               setInitialLoadDone(true);
+              clearTimeout(safetyTimeout);
             }
           } else {
             console.log("Auth changed but no user, setting loading to false");
             setLoading(false);
             setInitialLoadDone(true);
+            clearTimeout(safetyTimeout);
           }
         }
       }
@@ -150,6 +164,7 @@ export function useAuthProvider() {
     return () => {
       console.log("Auth provider cleanup");
       mounted = false;
+      clearTimeout(safetyTimeout);
       subscription.unsubscribe();
     };
   }, [navigate, location.pathname]);

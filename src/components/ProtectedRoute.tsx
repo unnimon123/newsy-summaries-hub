@@ -17,7 +17,7 @@ export default function ProtectedRoute() {
     const timeoutId = setTimeout(() => {
       console.log("Auth verification timeout reached, forcing completion");
       setIsVerifying(false);
-    }, 3000);
+    }, 2000); // Reduced timeout for faster fallback
     
     // If auth is already loaded, we don't need to wait
     if (initialLoadDone) {
@@ -32,11 +32,11 @@ export default function ProtectedRoute() {
   }, [initialLoadDone, location.pathname]);
   
   useEffect(() => {
-    if (!loading && initialLoadDone) {
+    if (initialLoadDone) {
       console.log("Auth loading complete, setting verification to false");
       setIsVerifying(false);
     }
-  }, [loading, initialLoadDone]);
+  }, [initialLoadDone]);
 
   // Debug info
   console.log("ProtectedRoute state:", { 
@@ -47,8 +47,8 @@ export default function ProtectedRoute() {
     path: location.pathname 
   });
 
-  // Show loader while verifying and during initial load
-  if ((loading || isVerifying) && !initialLoadDone) {
+  // Show loader only during verification, with a clear condition to avoid endless loading
+  if (isVerifying && !initialLoadDone) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="flex flex-col items-center">

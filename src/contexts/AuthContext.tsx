@@ -16,8 +16,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isLoading: auth.loading 
   });
 
-  // Only render children after initial auth check
-  if (!auth.initialLoadDone && auth.loading) {
+  // Only show loading state during initial authentication check
+  // Fixed condition to prevent infinite loading
+  if (auth.loading && !auth.initialLoadDone) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="flex flex-col items-center">
