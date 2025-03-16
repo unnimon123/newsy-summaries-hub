@@ -40,6 +40,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         signOut: auth.signOut,
         loading: auth.loading,
         isAdmin: auth.isAdmin,
+        initialLoadDone: auth.initialLoadDone,
       }}
     >
       {children}
