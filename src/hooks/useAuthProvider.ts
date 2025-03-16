@@ -50,24 +50,31 @@ export function useAuthProvider() {
 
   // Initialize auth and subscribe to changes
   useEffect(() => {
+    let mounted = true;
+    
     const initializeAuth = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        setSession(session);
-        setUser(session?.user ?? null);
+        
+        if (mounted) {
+          setSession(session);
+          setUser(session?.user ?? null);
 
-        if (session?.user) {
-          const userProfile = await fetchUserProfile(session.user.id);
-          if (userProfile) setProfile(userProfile);
-          
-          const userRoleData = await fetchUserRole(session.user.id);
-          if (userRoleData) setUserRole(userRoleData);
+          if (session?.user) {
+            const userProfile = await fetchUserProfile(session.user.id);
+            if (userProfile && mounted) setProfile(userProfile);
+            
+            const userRoleData = await fetchUserRole(session.user.id);
+            if (userRoleData && mounted) setUserRole(userRoleData);
+          }
         }
       } catch (error) {
         console.error('Error initializing auth:', error);
       } finally {
-        setLoading(false);
-        setInitialLoadDone(true);
+        if (mounted) {
+          setLoading(false);
+          setInitialLoadDone(true);
+        }
       }
     };
 
@@ -76,27 +83,37 @@ export function useAuthProvider() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log('Auth state changed:', event);
-        setSession(session);
-        setUser(session?.user ?? null);
         
-        if (session?.user) {
-          const userProfile = await fetchUserProfile(session.user.id);
-          if (userProfile) setProfile(userProfile);
+        if (mounted) {
+          setSession(session);
+          setUser(session?.user ?? null);
           
-          const userRoleData = await fetchUserRole(session.user.id);
-          if (userRoleData) setUserRole(userRoleData);
-        } else {
-          setProfile(null);
-          setUserRole(null);
+          if (event === 'SIGNED_OUT') {
+            setProfile(null);
+            setUserRole(null);
+            
+            // Redirect to login page after signing out
+            if (location.pathname !== '/auth/login') {
+              navigate('/auth/login');
+            }
+          } else if (session?.user) {
+            const userProfile = await fetchUserProfile(session.user.id);
+            if (userProfile && mounted) setProfile(userProfile);
+            
+            const userRoleData = await fetchUserRole(session.user.id);
+            if (userRoleData && mounted) setUserRole(userRoleData);
+          }
+          
+          setLoading(false);
         }
-        setLoading(false);
       }
     );
 
     return () => {
+      mounted = false;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [navigate, location.pathname]);
 
   // Authentication methods
   async function signUp(email: string, password: string, redirectUrl?: string) {
@@ -143,12 +160,23 @@ export function useAuthProvider() {
   async function signOut() {
     try {
       setLoading(true);
+      
+      // Clear local state first
+      setProfile(null);
+      setUserRole(null);
+      
       const { error } = await supabase.auth.signOut();
+      
       if (error) throw error;
       
-      navigate('/auth/login');
+      // Force redirect after signout
+      navigate('/auth/login', { replace: true });
     } catch (error: any) {
+      console.error('Sign out error:', error);
       toast.error(error.error_description || error.message);
+      
+      // Even if there's an error, attempt to redirect
+      navigate('/auth/login', { replace: true });
     } finally {
       setLoading(false);
     }

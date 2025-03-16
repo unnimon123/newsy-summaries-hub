@@ -1,10 +1,14 @@
 
 import { useAuth } from "@/contexts/AuthContext";
-import { Navigate, Outlet } from "react-router-dom";
+import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 
 export default function AdminRoute() {
-  const { isAdmin, loading } = useAuth();
+  const { isAdmin, loading, user } = useAuth();
+  const location = useLocation();
+
+  // Add more detailed logging for debugging
+  console.log("AdminRoute check:", { isAdmin, loading, hasUser: !!user, path: location.pathname });
 
   if (loading) {
     return (
@@ -14,8 +18,11 @@ export default function AdminRoute() {
     );
   }
 
-  // Add console.log for debugging
-  console.log("AdminRoute check - isAdmin:", isAdmin);
+  // First check if user is logged in at all
+  if (!user) {
+    return <Navigate to="/auth/login" replace />;
+  }
 
+  // Then check if they're an admin
   return isAdmin ? <Outlet /> : <Navigate to="/" replace />;
 }

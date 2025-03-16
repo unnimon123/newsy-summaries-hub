@@ -23,7 +23,7 @@ export default function AuthCallback() {
         if (error) {
           console.error("Error during auth callback:", error);
           toast.error("Authentication failed");
-          navigate("/auth/login");
+          navigate("/auth/login", { replace: true });
           return;
         }
 
@@ -33,23 +33,20 @@ export default function AuthCallback() {
           toast.success("Authentication successful");
           
           if (isMobileDeepLink) {
-            // This would be handled by the mobile app's deep link handler
             console.log("Mobile auth successful via deep link");
-            // Mobile apps typically handle this redirection internally
-            // This code executes in the web context of the auth callback
           } else {
-            // Regular web flow
-            navigate("/");
+            // Regular web flow with replace to prevent back button issues
+            navigate("/", { replace: true });
           }
         } else {
           // No session found, redirect to login
           console.log("No session found, redirecting to login");
-          navigate("/auth/login");
+          navigate("/auth/login", { replace: true });
         }
       } catch (error) {
         console.error("Unexpected error during auth callback:", error);
         toast.error("Authentication failed");
-        navigate("/auth/login");
+        navigate("/auth/login", { replace: true });
       }
     };
 

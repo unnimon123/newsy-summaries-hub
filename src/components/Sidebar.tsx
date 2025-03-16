@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { NavLink, Link } from "react-router-dom";
+import { NavLink, Link, useNavigate } from "react-router-dom";
 import { 
   BarChart3, 
   BellRing, 
@@ -26,8 +26,23 @@ import {
 const Sidebar = () => {
   const [collapsed, setCollapsed] = useState(false);
   const { user, profile, signOut, isAdmin } = useAuth();
+  const navigate = useNavigate();
 
   const toggleSidebar = () => setCollapsed(!collapsed);
+
+  const handleSignOut = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    
+    try {
+      // Show a loading state in the UI if needed
+      await signOut();
+      // Navigation is handled in the signOut function
+    } catch (error) {
+      console.error("Error signing out:", error);
+      // If signOut fails, try to force navigation
+      navigate('/auth/login', { replace: true });
+    }
+  };
 
   // Define routes based on user role
   const commonRoutes = [
@@ -113,7 +128,7 @@ const Sidebar = () => {
                         <span>Profile</span>
                       </Link>
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => signOut()}>
+                    <DropdownMenuItem onClick={handleSignOut}>
                       <LogOut className="mr-2 h-4 w-4" />
                       <span>Log out</span>
                     </DropdownMenuItem>
@@ -130,7 +145,7 @@ const Sidebar = () => {
                 <Button 
                   variant="ghost" 
                   size="icon" 
-                  onClick={() => signOut()} 
+                  onClick={handleSignOut} 
                   className="rounded-full"
                 >
                   <LogOut size={20} />
