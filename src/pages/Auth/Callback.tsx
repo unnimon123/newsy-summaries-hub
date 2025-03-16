@@ -13,10 +13,6 @@ export default function AuthCallback() {
       try {
         console.log("Auth callback handling initiated");
         
-        // Check if we're in a mobile deep link scenario
-        const isMobileDeepLink = window.location.href.includes("newsy-app://");
-        console.log("Is mobile deep link:", isMobileDeepLink);
-        
         // Check if we have a session
         const { data, error } = await supabase.auth.getSession();
         
@@ -32,12 +28,8 @@ export default function AuthCallback() {
           console.log("Session found, redirecting");
           toast.success("Authentication successful");
           
-          if (isMobileDeepLink) {
-            console.log("Mobile auth successful via deep link");
-          } else {
-            // Regular web flow with replace to prevent back button issues
-            navigate("/", { replace: true });
-          }
+          // Regular web flow with replace to prevent back button issues
+          navigate("/", { replace: true });
         } else {
           // No session found, redirect to login
           console.log("No session found, redirecting to login");
@@ -51,6 +43,16 @@ export default function AuthCallback() {
     };
 
     handleCallback();
+    
+    // Set a timeout to prevent infinite loading if the callback handler fails
+    const timeoutId = setTimeout(() => {
+      console.log("Auth callback timeout reached, forcing redirect to login");
+      navigate("/auth/login", { replace: true });
+    }, 5000);
+    
+    return () => {
+      clearTimeout(timeoutId);
+    };
   }, [navigate]);
 
   return (

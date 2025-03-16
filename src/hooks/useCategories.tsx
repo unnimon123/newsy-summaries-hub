@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 export const useCategories = () => {
   // Fetch categories from Supabase
-  const { data: categoriesData, isLoading: categoriesLoading } = useQuery({
+  const { data: categoriesData, isLoading: categoriesLoading, error: categoriesError } = useQuery({
     queryKey: ['categories'],
     queryFn: async () => {
       console.log('Fetching categories from Supabase...');
@@ -23,6 +23,11 @@ export const useCategories = () => {
     },
   });
 
+  // Log any errors for debugging
+  if (categoriesError) {
+    console.error('Error in useCategories hook:', categoriesError);
+  }
+
   // Construct categories array for the filter dropdown
   const categories = [
     { value: "all", label: "All Categories" },
@@ -35,6 +40,7 @@ export const useCategories = () => {
   return {
     categoriesData,
     categoriesLoading,
+    categoriesError,
     categories
   };
 };

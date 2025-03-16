@@ -8,6 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useEffect } from "react";
 
 interface NewsFiltersProps {
   searchQuery: string;
@@ -24,6 +25,11 @@ const NewsFilters = ({
   setCategoryFilter,
   categories,
 }: NewsFiltersProps) => {
+  // Debug log when categories change
+  useEffect(() => {
+    console.log("NewsFilters categories:", categories);
+  }, [categories]);
+
   return (
     <div className="flex flex-col gap-4 mb-6 sm:flex-row">
       <div className="relative flex-1">
@@ -41,11 +47,15 @@ const NewsFilters = ({
           <SelectValue placeholder="All Categories" />
         </SelectTrigger>
         <SelectContent>
-          {categories.map((category) => (
-            <SelectItem key={category.value} value={category.value}>
-              {category.label}
-            </SelectItem>
-          ))}
+          {categories.length === 0 ? (
+            <SelectItem value="loading" disabled>Loading categories...</SelectItem>
+          ) : (
+            categories.map((category) => (
+              <SelectItem key={category.value} value={category.value}>
+                {category.label}
+              </SelectItem>
+            ))
+          )}
         </SelectContent>
       </Select>
     </div>

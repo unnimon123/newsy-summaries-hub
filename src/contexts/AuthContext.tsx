@@ -9,11 +9,21 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const auth = useAuthProvider();
 
+  // Debug renderer to validate auth state
+  console.log("AuthProvider rendering with state:", { 
+    hasUser: !!auth.user, 
+    isInitialLoadDone: auth.initialLoadDone,
+    isLoading: auth.loading 
+  });
+
   // Only render children after initial auth check
-  if (!auth.initialLoadDone) {
+  if (!auth.initialLoadDone && auth.loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+        <div className="flex flex-col items-center">
+          <Loader2 className="h-12 w-12 animate-spin text-primary mb-2" />
+          <p className="text-sm text-muted-foreground">Initializing application...</p>
+        </div>
       </div>
     );
   }

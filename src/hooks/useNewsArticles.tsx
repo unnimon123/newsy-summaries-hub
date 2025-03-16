@@ -72,7 +72,8 @@ export const useNewsArticles = (statusFilter: NewsStatus) => {
           category_id: article.category,
           status: 'draft',
           created_by: (await supabase.auth.getUser()).data.user?.id
-        });
+        })
+        .select();
       
       if (error) {
         console.error('Error creating article:', error);
@@ -95,7 +96,11 @@ export const useNewsArticles = (statusFilter: NewsStatus) => {
   // Update article mutation
   const updateArticleMutation = useMutation({
     mutationFn: async (article: NewsArticle) => {
-      if (!article.id) return;
+      if (!article.id) {
+        throw new Error("Article ID is required for updates");
+      }
+      
+      console.log('Updating article:', article);
       
       // Map our form data to the database schema
       const { error } = await supabase
@@ -109,17 +114,27 @@ export const useNewsArticles = (statusFilter: NewsStatus) => {
         })
         .eq('id', article.id);
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error updating article:', error);
+        throw error;
+      }
     },
     onSuccess: () => {
+      console.log('Article updated successfully');
       queryClient.invalidateQueries({ queryKey: ['news'] });
       toast.success('Article updated successfully');
     },
+    onError: (error) => {
+      console.error('Error in updateArticleMutation:', error);
+      toast.error(`Failed to update article: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   });
 
   // Delete article mutation
   const deleteArticleMutation = useMutation({
     mutationFn: async (id: string) => {
+      console.log('Deleting article:', id);
+      
       // Get the image path first
       const { data: article } = await supabase
         .from('news')
@@ -133,7 +148,10 @@ export const useNewsArticles = (statusFilter: NewsStatus) => {
         .delete()
         .eq('id', id);
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error deleting article:', error);
+        throw error;
+      }
       
       // If there's an image stored in Supabase, delete it
       if (article?.image_path && article.image_path.includes('news-images')) {
@@ -151,9 +169,14 @@ export const useNewsArticles = (statusFilter: NewsStatus) => {
       }
     },
     onSuccess: () => {
+      console.log('Article deleted successfully');
       queryClient.invalidateQueries({ queryKey: ['news'] });
       toast.success('Article deleted successfully');
     },
+    onError: (error) => {
+      console.error('Error in deleteArticleMutation:', error);
+      toast.error(`Failed to delete article: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   });
 
   return {

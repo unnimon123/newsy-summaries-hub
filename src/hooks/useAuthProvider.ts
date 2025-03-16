@@ -50,28 +50,47 @@ export function useAuthProvider() {
 
   // Initialize auth and subscribe to changes
   useEffect(() => {
+    console.log("Auth provider initialization starting");
     let mounted = true;
     
     const initializeAuth = async () => {
       try {
+        console.log("Getting session from Supabase");
         const { data: { session } } = await supabase.auth.getSession();
+        console.log("Session received:", session ? "Session exists" : "No session");
         
         if (mounted) {
           setSession(session);
           setUser(session?.user ?? null);
 
           if (session?.user) {
-            const userProfile = await fetchUserProfile(session.user.id);
-            if (userProfile && mounted) setProfile(userProfile);
-            
-            const userRoleData = await fetchUserRole(session.user.id);
-            if (userRoleData && mounted) setUserRole(userRoleData);
+            console.log("Fetching user profile and role");
+            try {
+              const userProfile = await fetchUserProfile(session.user.id);
+              if (userProfile && mounted) {
+                console.log("User profile fetched successfully");
+                setProfile(userProfile);
+              }
+              
+              const userRoleData = await fetchUserRole(session.user.id);
+              if (userRoleData && mounted) {
+                console.log("User role fetched successfully:", userRoleData.role);
+                setUserRole(userRoleData);
+              }
+            } catch (profileError) {
+              console.error("Error fetching profile or role:", profileError);
+            }
+          } else {
+            console.log("No user in session, setting profile and role to null");
+            setProfile(null);
+            setUserRole(null);
           }
         }
       } catch (error) {
         console.error('Error initializing auth:', error);
       } finally {
         if (mounted) {
+          console.log("Auth initialization complete, setting loading to false");
           setLoading(false);
           setInitialLoadDone(true);
         }
@@ -82,34 +101,54 @@ export function useAuthProvider() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state changed:', event);
+        console.log('Auth state changed:', event, "User:", session?.user?.email);
         
         if (mounted) {
           setSession(session);
           setUser(session?.user ?? null);
           
           if (event === 'SIGNED_OUT') {
+            console.log("Signed out event detected, clearing auth state");
             setProfile(null);
             setUserRole(null);
+            setInitialLoadDone(true);
+            setLoading(false);
             
             // Redirect to login page after signing out
             if (location.pathname !== '/auth/login') {
-              navigate('/auth/login');
+              navigate('/auth/login', { replace: true });
             }
           } else if (session?.user) {
-            const userProfile = await fetchUserProfile(session.user.id);
-            if (userProfile && mounted) setProfile(userProfile);
-            
-            const userRoleData = await fetchUserRole(session.user.id);
-            if (userRoleData && mounted) setUserRole(userRoleData);
+            console.log("User authenticated, fetching profile data");
+            try {
+              const userProfile = await fetchUserProfile(session.user.id);
+              if (userProfile && mounted) {
+                setProfile(userProfile);
+              }
+              
+              const userRoleData = await fetchUserRole(session.user.id);
+              if (userRoleData && mounted) {
+                setUserRole(userRoleData);
+              }
+              
+              setInitialLoadDone(true);
+              setLoading(false);
+            } catch (error) {
+              console.error("Error fetching profile/role during auth change:", error);
+              setLoading(false);
+              setInitialLoadDone(true);
+            }
+          } else {
+            console.log("Auth changed but no user, setting loading to false");
+            setLoading(false);
+            setInitialLoadDone(true);
           }
-          
-          setLoading(false);
         }
       }
     );
 
     return () => {
+      console.log("Auth provider cleanup");
       mounted = false;
       subscription.unsubscribe();
     };
@@ -161,9 +200,11 @@ export function useAuthProvider() {
     try {
       setLoading(true);
       
-      // Clear local state first
+      // Clear local state first to avoid UI flashing
       setProfile(null);
       setUserRole(null);
+      setUser(null);
+      setSession(null);
       
       const { error } = await supabase.auth.signOut();
       
@@ -181,6 +222,15 @@ export function useAuthProvider() {
       setLoading(false);
     }
   }
+
+  // Debug info
+  console.log("Auth provider state:", { 
+    hasUser: !!user, 
+    hasSession: !!session, 
+    isAdmin: userRole?.role === 'admin', 
+    loading, 
+    initialLoadDone 
+  });
 
   return {
     session,

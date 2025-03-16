@@ -7,6 +7,7 @@ import { Profile, UserRole } from "@/types/auth";
  */
 export async function fetchUserProfile(userId: string): Promise<Profile | null> {
   try {
+    console.log(`Fetching profile for user: ${userId}`);
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
@@ -14,9 +15,15 @@ export async function fetchUserProfile(userId: string): Promise<Profile | null> 
       .single();
 
     if (error) {
+      if (error.code === 'PGRST116') {
+        console.warn('No profile found for user:', userId);
+        return null;
+      }
       console.error('Error fetching user profile:', error);
       return null;
     }
+
+    console.log('Profile fetched successfully:', data?.id);
 
     // Transform the notification_preferences from Json to our expected type
     const transformedProfile: Profile = {
@@ -49,6 +56,7 @@ export async function fetchUserProfile(userId: string): Promise<Profile | null> 
  */
 export async function fetchUserRole(userId: string): Promise<UserRole | null> {
   try {
+    console.log(`Fetching role for user: ${userId}`);
     const { data, error } = await supabase
       .from('user_roles')
       .select('role')
@@ -56,10 +64,15 @@ export async function fetchUserRole(userId: string): Promise<UserRole | null> {
       .single();
 
     if (error) {
+      if (error.code === 'PGRST116') {
+        console.warn('No role found for user:', userId);
+        return { role: 'user' }; // Default to regular user if no role found
+      }
       console.error('Error fetching user role:', error);
       return null;
     }
 
+    console.log('Role fetched successfully:', data?.role);
     return data as UserRole;
   } catch (error) {
     console.error('Unexpected error fetching role:', error);

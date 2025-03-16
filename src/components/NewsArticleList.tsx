@@ -26,15 +26,27 @@ const NewsArticleList = ({
   onEdit,
   onDelete,
 }: NewsArticleListProps) => {
+  // Debug information
+  console.log("NewsArticleList state:", {
+    isLoading,
+    articleCount: filteredArticles?.length,
+    showForm,
+    hasSearchQuery: !!searchQuery,
+    categoryFilter
+  });
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <div className="flex flex-col items-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary mb-2" />
+          <p className="text-sm text-muted-foreground">Loading articles...</p>
+        </div>
       </div>
     );
   }
 
-  if (filteredArticles.length === 0) {
+  if (!filteredArticles || filteredArticles.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-8 text-center">
         <h3 className="mt-2 text-lg font-semibold">No articles found</h3>
