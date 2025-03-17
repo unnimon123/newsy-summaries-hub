@@ -60,7 +60,7 @@ export function useAuthProvider() {
         setLoading(false);
         setInitialLoadDone(true);
       }
-    }, 5000);
+    }, 3000); // Reduced from 5000 to 3000 for faster fallback
     
     const initializeAuth = async () => {
       try {
@@ -88,18 +88,25 @@ export function useAuthProvider() {
               }
             } catch (profileError) {
               console.error("Error fetching profile or role:", profileError);
+            } finally {
+              if (mounted) {
+                setLoading(false);
+                setInitialLoadDone(true);
+                clearTimeout(safetyTimeout);
+              }
             }
           } else {
             console.log("No user in session, setting profile and role to null");
             setProfile(null);
             setUserRole(null);
+            setLoading(false);
+            setInitialLoadDone(true);
+            clearTimeout(safetyTimeout);
           }
         }
       } catch (error) {
         console.error('Error initializing auth:', error);
-      } finally {
         if (mounted) {
-          console.log("Auth initialization complete, setting loading to false");
           setLoading(false);
           setInitialLoadDone(true);
           clearTimeout(safetyTimeout);
@@ -124,11 +131,6 @@ export function useAuthProvider() {
             setInitialLoadDone(true);
             setLoading(false);
             clearTimeout(safetyTimeout);
-            
-            // Redirect to login page after signing out
-            if (location.pathname !== '/auth/login') {
-              navigate('/auth/login', { replace: true });
-            }
           } else if (session?.user) {
             console.log("User authenticated, fetching profile data");
             try {
@@ -141,15 +143,14 @@ export function useAuthProvider() {
               if (userRoleData && mounted) {
                 setUserRole(userRoleData);
               }
-              
-              setInitialLoadDone(true);
-              setLoading(false);
-              clearTimeout(safetyTimeout);
             } catch (error) {
               console.error("Error fetching profile/role during auth change:", error);
-              setLoading(false);
-              setInitialLoadDone(true);
-              clearTimeout(safetyTimeout);
+            } finally {
+              if (mounted) {
+                setInitialLoadDone(true);
+                setLoading(false);
+                clearTimeout(safetyTimeout);
+              }
             }
           } else {
             console.log("Auth changed but no user, setting loading to false");
@@ -187,6 +188,7 @@ export function useAuthProvider() {
       navigate('/auth/login');
     } catch (error: any) {
       toast.error(error.error_description || error.message);
+      throw error; // Rethrow to be handled by caller
     } finally {
       setLoading(false);
     }
@@ -206,6 +208,7 @@ export function useAuthProvider() {
       navigate('/');
     } catch (error: any) {
       toast.error(error.error_description || error.message);
+      throw error; // Rethrow to be handled by caller
     } finally {
       setLoading(false);
     }
@@ -215,16 +218,17 @@ export function useAuthProvider() {
     try {
       setLoading(true);
       
-      // Clear local state first to avoid UI flashing
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) throw error;
+      
+      // Clear local state after successful signout
       setProfile(null);
       setUserRole(null);
       setUser(null);
       setSession(null);
       
-      const { error } = await supabase.auth.signOut();
-      
-      if (error) throw error;
-      
+      toast.success("Signed out successfully");
       // Force redirect after signout
       navigate('/auth/login', { replace: true });
     } catch (error: any) {

@@ -17,7 +17,7 @@ export default function AdminRoute() {
     const timeoutId = setTimeout(() => {
       console.log("Admin verification timeout reached, forcing completion");
       setIsVerifying(false);
-    }, 1500); // Further reduced timeout for faster fallback
+    }, 1200); // Further reduced timeout for faster fallback
     
     // If auth is already loaded, we don't need to wait
     if (initialLoadDone) {
@@ -48,7 +48,7 @@ export default function AdminRoute() {
     path: location.pathname 
   });
 
-  // Show loader only during verification, with a clear condition to avoid endless loading
+  // Show loader only during initial verification
   if ((isVerifying && !initialLoadDone) || loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">

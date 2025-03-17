@@ -13,9 +13,27 @@ const NewsManagementTabs = ({ onValueChange, value, children }: NewsManagementTa
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       <TabsList>
-        <TabsTrigger value="all" onClick={() => onValueChange("all")}>All Articles</TabsTrigger>
-        <TabsTrigger value="draft" onClick={() => onValueChange("draft")}>Drafts</TabsTrigger>
-        <TabsTrigger value="published" onClick={() => onValueChange("published")}>Published</TabsTrigger>
+        <TabsTrigger 
+          value="all" 
+          onClick={() => onValueChange("all")}
+          data-state={value === "all" ? "active" : "inactive"}
+        >
+          All Articles
+        </TabsTrigger>
+        <TabsTrigger 
+          value="draft" 
+          onClick={() => onValueChange("draft")}
+          data-state={value === "draft" ? "active" : "inactive"}
+        >
+          Drafts
+        </TabsTrigger>
+        <TabsTrigger 
+          value="published" 
+          onClick={() => onValueChange("published")}
+          data-state={value === "published" ? "active" : "inactive"}
+        >
+          Published
+        </TabsTrigger>
       </TabsList>
       {children}
     </div>

@@ -8,8 +8,14 @@ import NewsManagementTabs from "@/components/news-management/NewsManagementTabs"
 import NewsManagementContent from "@/components/news-management/NewsManagementContent";
 import { useNewsManagement } from "@/hooks/useNewsManagement";
 import { NewsStatus } from "@/hooks/useNewsArticles";
+import { useEffect } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
 
 const NewsManagement = () => {
+  const { isAdmin, initialLoadDone } = useAuth();
+  const navigate = useNavigate();
+  
   const {
     showForm,
     setShowForm,
@@ -28,6 +34,14 @@ const NewsManagement = () => {
     handleUpdateArticle,
     handleDeleteArticle
   } = useNewsManagement();
+  
+  // Verify admin access once auth is fully loaded
+  useEffect(() => {
+    if (initialLoadDone && !isAdmin) {
+      console.log("Non-admin user attempted to access /news, redirecting to home");
+      navigate('/', { replace: true });
+    }
+  }, [isAdmin, initialLoadDone, navigate]);
 
   return (
     <MainLayout>
@@ -48,26 +62,24 @@ const NewsManagement = () => {
             </Button>
           </NewsManagementTabs>
 
-          {["all", "draft", "published"].map((tab) => (
-            <NewsManagementContent
-              key={tab}
-              tabValue={tab}
-              showForm={showForm}
-              editingArticle={editingArticle}
-              searchQuery={searchQuery}
-              categoryFilter={categoryFilter}
-              isLoading={isLoading}
-              filteredArticles={filteredArticles}
-              categories={categories}
-              setShowForm={setShowForm}
-              setEditingArticle={setEditingArticle}
-              setSearchQuery={setSearchQuery}
-              setCategoryFilter={setCategoryFilter}
-              handleCreateArticle={handleCreateArticle}
-              handleUpdateArticle={handleUpdateArticle}
-              handleDeleteArticle={handleDeleteArticle}
-            />
-          ))}
+          <NewsManagementContent
+            key={statusFilter}
+            tabValue={statusFilter}
+            showForm={showForm}
+            editingArticle={editingArticle}
+            searchQuery={searchQuery}
+            categoryFilter={categoryFilter}
+            isLoading={isLoading}
+            filteredArticles={filteredArticles}
+            categories={categories}
+            setShowForm={setShowForm}
+            setEditingArticle={setEditingArticle}
+            setSearchQuery={setSearchQuery}
+            setCategoryFilter={setCategoryFilter}
+            handleCreateArticle={handleCreateArticle}
+            handleUpdateArticle={handleUpdateArticle}
+            handleDeleteArticle={handleDeleteArticle}
+          />
         </Tabs>
       </div>
     </MainLayout>

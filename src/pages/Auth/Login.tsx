@@ -21,7 +21,8 @@ const formSchema = z.object({
 });
 
 export default function Login() {
-  const { signIn, loading } = useAuth();
+  const { signIn } = useAuth();
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -34,10 +35,13 @@ export default function Login() {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setSubmitError(null);
+    setIsSubmitting(true);
     try {
       await signIn(values.email, values.password);
     } catch (error: any) {
       setSubmitError(error.message);
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
@@ -64,7 +68,7 @@ export default function Login() {
                         <Input 
                           placeholder="your.email@example.com" 
                           {...field} 
-                          disabled={loading} 
+                          disabled={isSubmitting} 
                         />
                       </FormControl>
                       <FormMessage />
@@ -82,7 +86,7 @@ export default function Login() {
                           type="password"
                           placeholder="••••••••" 
                           {...field} 
-                          disabled={loading} 
+                          disabled={isSubmitting} 
                         />
                       </FormControl>
                       <FormMessage />
@@ -92,8 +96,8 @@ export default function Login() {
                 {submitError && (
                   <div className="text-sm font-medium text-destructive">{submitError}</div>
                 )}
-                <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? (
+                <Button type="submit" className="w-full" disabled={isSubmitting}>
+                  {isSubmitting ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Logging in...

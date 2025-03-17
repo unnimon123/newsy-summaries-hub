@@ -5,9 +5,11 @@ import AnalyticsCard from "@/components/AnalyticsCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Index = () => {
   const navigate = useNavigate();
+  const { isAdmin } = useAuth();
 
   // Mock data - in a real application this would come from Supabase
   const mockStats = {
@@ -105,13 +107,15 @@ const Index = () => {
               <CardTitle>Quick Actions</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
-              <Button 
-                onClick={() => navigate("/news")}
-                className="w-full justify-start"
-              >
-                <Newspaper className="mr-2 h-4 w-4" />
-                Manage News Articles
-              </Button>
+              {isAdmin && (
+                <Button 
+                  onClick={() => navigate("/news")}
+                  className="w-full justify-start"
+                >
+                  <Newspaper className="mr-2 h-4 w-4" />
+                  Manage News Articles
+                </Button>
+              )}
               <Button 
                 onClick={() => navigate("/notifications")}
                 className="w-full justify-start"
@@ -119,14 +123,16 @@ const Index = () => {
                 <BellRing className="mr-2 h-4 w-4" />
                 Send Push Notification
               </Button>
-              <Button 
-                onClick={() => navigate("/analytics")}
-                variant="outline"
-                className="w-full justify-start"
-              >
-                <BarChart3 className="mr-2 h-4 w-4" />
-                View Detailed Analytics
-              </Button>
+              {isAdmin && (
+                <Button 
+                  onClick={() => navigate("/analytics")}
+                  variant="outline"
+                  className="w-full justify-start"
+                >
+                  <BarChart3 className="mr-2 h-4 w-4" />
+                  View Detailed Analytics
+                </Button>
+              )}
             </CardContent>
           </Card>
         </div>
