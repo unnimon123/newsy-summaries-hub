@@ -17,7 +17,7 @@ export default function AdminRoute() {
     const timeoutId = setTimeout(() => {
       console.log("Admin verification timeout reached, forcing completion");
       setIsVerifying(false);
-    }, 1200); // Further reduced timeout for faster fallback
+    }, 1000); // Reduced timeout for faster fallback
     
     // If auth is already loaded, we don't need to wait
     if (initialLoadDone) {

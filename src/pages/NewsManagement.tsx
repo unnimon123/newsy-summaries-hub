@@ -8,13 +8,15 @@ import NewsManagementTabs from "@/components/news-management/NewsManagementTabs"
 import NewsManagementContent from "@/components/news-management/NewsManagementContent";
 import { useNewsManagement } from "@/hooks/useNewsManagement";
 import { NewsStatus } from "@/hooks/useNewsArticles";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
 const NewsManagement = () => {
   const { isAdmin, initialLoadDone } = useAuth();
   const navigate = useNavigate();
+  const [isVerifying, setIsVerifying] = useState(true);
   
   const {
     showForm,
@@ -37,11 +39,29 @@ const NewsManagement = () => {
   
   // Verify admin access once auth is fully loaded
   useEffect(() => {
-    if (initialLoadDone && !isAdmin) {
-      console.log("Non-admin user attempted to access /news, redirecting to home");
-      navigate('/', { replace: true });
+    console.log("NewsManagement: Checking admin status", { isAdmin, initialLoadDone });
+    
+    const timeoutId = setTimeout(() => {
+      setIsVerifying(false);
+    }, 1000);
+    
+    if (initialLoadDone) {
+      clearTimeout(timeoutId);
+      setIsVerifying(false);
+      
+      if (!isAdmin) {
+        console.log("Non-admin user attempted to access /news, redirecting to home");
+        toast.error("You don't have permission to access this page");
+        navigate('/', { replace: true });
+      }
     }
+    
+    return () => clearTimeout(timeoutId);
   }, [isAdmin, initialLoadDone, navigate]);
+
+  if (isVerifying && !initialLoadDone) {
+    return null; // Let the AdminRoute component handle the loading state
+  }
 
   return (
     <MainLayout>

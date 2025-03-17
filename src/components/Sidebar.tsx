@@ -30,11 +30,9 @@ const Sidebar = () => {
 
   const toggleSidebar = () => setCollapsed(!collapsed);
 
-  const handleSignOut = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    
+  const handleSignOut = async () => {
     try {
-      // Show a loading state in the UI if needed
+      console.log("Signing out user");
       await signOut();
       // Navigation is handled in the signOut function
     } catch (error) {
