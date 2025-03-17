@@ -37,8 +37,11 @@ const NewsManagement = () => {
           setShowForm={setShowForm} 
         />
 
-        <Tabs defaultValue="all" onValueChange={(value) => setStatusFilter(value as NewsStatus)}>
-          <NewsManagementTabs onValueChange={setStatusFilter}>
+        <Tabs value={statusFilter} onValueChange={(value) => setStatusFilter(value as NewsStatus)}>
+          <NewsManagementTabs 
+            value={statusFilter} 
+            onValueChange={setStatusFilter}
+          >
             <Button onClick={() => setShowForm(true)} disabled={showForm}>
               <PlusCircle className="mr-2 h-4 w-4" />
               New Article

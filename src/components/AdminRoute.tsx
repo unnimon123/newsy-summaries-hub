@@ -17,7 +17,7 @@ export default function AdminRoute() {
     const timeoutId = setTimeout(() => {
       console.log("Admin verification timeout reached, forcing completion");
       setIsVerifying(false);
-    }, 2000); // Reduced timeout for faster fallback
+    }, 1500); // Further reduced timeout for faster fallback
     
     // If auth is already loaded, we don't need to wait
     if (initialLoadDone) {
@@ -49,7 +49,7 @@ export default function AdminRoute() {
   });
 
   // Show loader only during verification, with a clear condition to avoid endless loading
-  if (isVerifying && !initialLoadDone) {
+  if ((isVerifying && !initialLoadDone) || loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="flex flex-col items-center">
@@ -62,9 +62,16 @@ export default function AdminRoute() {
 
   // First check if user is logged in at all
   if (!user) {
+    console.log("User not logged in, redirecting to login");
     return <Navigate to="/auth/login" state={{ from: location }} replace />;
   }
 
   // Then check if they're an admin
-  return isAdmin ? <Outlet /> : <Navigate to="/" replace />;
+  if (!isAdmin) {
+    console.log("User is not an admin, redirecting to home");
+    return <Navigate to="/" replace />;
+  }
+
+  console.log("User is admin, rendering admin content");
+  return <Outlet />;
 }

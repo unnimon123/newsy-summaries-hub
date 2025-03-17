@@ -51,6 +51,7 @@ export const useNewsArticles = (statusFilter: NewsStatus) => {
         imageUrl: item.image_path || "",
         sourceUrl: item.source_url || "",
         category: item.category_id || "",
+        status: item.status,
         timestamp: item.created_at,
         viewCount: item.view_count
       }));
@@ -70,7 +71,7 @@ export const useNewsArticles = (statusFilter: NewsStatus) => {
           image_path: article.imageUrl,
           source_url: article.sourceUrl,
           category_id: article.category,
-          status: 'draft',
+          status: article.status || 'draft',
           created_by: (await supabase.auth.getUser()).data.user?.id
         })
         .select();
@@ -111,6 +112,7 @@ export const useNewsArticles = (statusFilter: NewsStatus) => {
           image_path: article.imageUrl,
           source_url: article.sourceUrl,
           category_id: article.category,
+          status: article.status || 'draft',
         })
         .eq('id', article.id);
       

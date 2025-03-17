@@ -16,6 +16,7 @@ export interface NewsArticle {
   category: string;
   timestamp?: string;
   viewCount?: number;
+  status?: "draft" | "published";
 }
 
 interface NewsFormProps {
@@ -32,6 +33,7 @@ const NewsForm = ({ article, onSubmit, onCancel }: NewsFormProps) => {
       imageUrl: "",
       sourceUrl: "",
       category: "",
+      status: "draft"
     }
   );
   
@@ -67,7 +69,7 @@ const NewsForm = ({ article, onSubmit, onCancel }: NewsFormProps) => {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent, publishStatus?: "draft" | "published") => {
     e.preventDefault();
     
     const validationErrors = validateNewsForm(formData, imageFile);
@@ -89,6 +91,7 @@ const NewsForm = ({ article, onSubmit, onCancel }: NewsFormProps) => {
       await onSubmit({
         ...formData,
         imageUrl,
+        status: publishStatus || formData.status || "draft",
         timestamp: new Date().toISOString(),
       });
       
@@ -102,6 +105,7 @@ const NewsForm = ({ article, onSubmit, onCancel }: NewsFormProps) => {
           imageUrl: "",
           sourceUrl: "",
           category: "",
+          status: "draft"
         });
         setImageFile(null);
       }
@@ -118,7 +122,7 @@ const NewsForm = ({ article, onSubmit, onCancel }: NewsFormProps) => {
       <CardHeader>
         <CardTitle>{article ? "Edit Article" : "Create New Article"}</CardTitle>
       </CardHeader>
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={(e) => handleSubmit(e)}>
         <CardContent>
           <NewsFormContent 
             formData={formData}
@@ -134,9 +138,22 @@ const NewsForm = ({ article, onSubmit, onCancel }: NewsFormProps) => {
               Cancel
             </Button>
           )}
-          <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Saving..." : article ? "Update Article" : "Create Article"}
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              type="submit" 
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? "Saving..." : article ? "Update as Draft" : "Save as Draft"}
+            </Button>
+            <Button
+              type="button"
+              disabled={isSubmitting}
+              onClick={(e) => handleSubmit(e, "published")}
+              variant="secondary"
+            >
+              {isSubmitting ? "Publishing..." : "Publish"}
+            </Button>
+          </div>
         </CardFooter>
       </form>
     </Card>
