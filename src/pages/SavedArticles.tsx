@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useSavedArticles } from '@/hooks/useSavedArticles';
 import NewsCard from '@/components/NewsCard';
@@ -15,7 +14,6 @@ export default function SavedArticlesPage() {
   const [activeTab, setActiveTab] = useState('all');
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Handle filtering by read status
   const filteredArticles = savedArticles.filter(item => {
     if (activeTab === 'read') return item.is_read;
     if (activeTab === 'unread') return !item.is_read;
@@ -40,7 +38,6 @@ export default function SavedArticlesPage() {
   const renderSavedNewsCard = (savedItem: any) => {
     if (!savedItem.article) return null;
     
-    // Convert to the format expected by NewsCard
     const article: NewsArticle = {
       id: savedItem.article.id,
       title: savedItem.article.title,
@@ -48,10 +45,8 @@ export default function SavedArticlesPage() {
       category: savedItem.article.category_id,
       imageUrl: savedItem.article.image_path,
       sourceUrl: savedItem.article.source_url,
-      sourceName: savedItem.article.source_name,
       timestamp: savedItem.article.created_at,
       status: savedItem.article.status,
-      // Remove the 'content' property as it doesn't exist in the NewsArticle type
     };
 
     return (
