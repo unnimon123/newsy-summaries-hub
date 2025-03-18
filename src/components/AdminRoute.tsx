@@ -1,9 +1,12 @@
 
 import { useAuth } from "@/contexts/AuthContext";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
-import { Loader2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Loader2, ShieldAlert } from "lucide-react";
 
+/**
+ * A route component that only allows admin users to access it
+ * Redirects to login if not authenticated, or home if authenticated but not admin
+ */
 export default function AdminRoute() {
   const { isAdmin, loading, initialLoadDone, user } = useAuth();
   const location = useLocation();
@@ -29,18 +32,19 @@ export default function AdminRoute() {
     );
   }
 
-  // First check if user is logged in at all
+  // If not logged in, redirect to login page
   if (!user) {
     console.log("User not logged in, redirecting to login");
     return <Navigate to="/auth/login" state={{ from: location }} replace />;
   }
 
-  // Then check if they're an admin
+  // If logged in but not admin, redirect to home page
   if (!isAdmin) {
     console.log("User is not an admin, redirecting to home");
     return <Navigate to="/" replace />;
   }
 
+  // User is admin, render admin content
   console.log("User is admin, rendering admin content");
   return <Outlet />;
 }
