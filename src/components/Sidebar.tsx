@@ -1,12 +1,12 @@
 
 import { useState } from "react";
 import { NavLink, Link, useNavigate } from "react-router-dom";
-import { 
-  BarChart3, 
-  BellRing, 
-  LayoutDashboard, 
-  Menu, 
-  Newspaper, 
+import {
+  BarChart3,
+  BellRing,
+  LayoutDashboard,
+  Menu,
+  Newspaper,
   X,
   User,
   LogOut
@@ -25,7 +25,7 @@ import {
 
 const Sidebar = () => {
   const [collapsed, setCollapsed] = useState(false);
-  const { user, profile, signOut, isAdmin } = useAuth();
+  const { user, profile, signOut, isAdmin, userRole } = useAuth();
   const navigate = useNavigate();
 
   const toggleSidebar = () => setCollapsed(!collapsed);
@@ -47,15 +47,18 @@ const Sidebar = () => {
     { path: "/", label: "Dashboard", icon: LayoutDashboard },
     { path: "/notifications", label: "Notifications", icon: BellRing },
   ];
-  
+
   const adminRoutes = [
     { path: "/news", label: "News Management", icon: Newspaper },
     { path: "/analytics", label: "Analytics", icon: BarChart3 },
   ];
 
   // Combine routes based on user role
-  const navItems = isAdmin 
-    ? [...commonRoutes, ...adminRoutes] 
+  // Force debug output to help diagnose admin role issues
+  console.log("Sidebar rendering with isAdmin:", isAdmin, "userRole:", userRole);
+
+  const navItems = isAdmin
+    ? [...commonRoutes, ...adminRoutes]
     : commonRoutes;
 
   return (
@@ -68,17 +71,17 @@ const Sidebar = () => {
           {!collapsed && (
             <h1 className="text-xl font-bold text-blue-700">News Admin</h1>
           )}
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={toggleSidebar} 
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleSidebar}
             className="ml-auto"
           >
             {collapsed ? <Menu size={20} /> : <X size={20} />}
           </Button>
         </div>
-        
-        <nav className="mt-6 px-2 flex flex-col justify-between h-[calc(100vh-4rem)]">
+
+        <nav className="mt-6 px-2 flex flex-col justify-between h-[calc(100vh-4rem)] overflow-y-auto pb-4">
           <div>
             {navItems.map((item) => (
               <NavLink
@@ -86,8 +89,8 @@ const Sidebar = () => {
                 to={item.path}
                 className={({ isActive }) => cn(
                   "flex items-center px-3 py-2 my-1 rounded-md text-sm font-medium transition-colors",
-                  isActive 
-                    ? "bg-blue-50 text-blue-700" 
+                  isActive
+                    ? "bg-blue-50 text-blue-700"
                     : "text-gray-600 hover:bg-gray-100",
                   collapsed && "justify-center"
                 )}
@@ -97,7 +100,7 @@ const Sidebar = () => {
               </NavLink>
             ))}
           </div>
-          
+
           {/* User section at bottom */}
           <div className="mb-6">
             {!collapsed ? (
@@ -134,31 +137,31 @@ const Sidebar = () => {
                 </DropdownMenu>
               </div>
             ) : (
-              <div className="flex flex-col items-center gap-2">
+              <div className="flex flex-col items-center gap-2 py-4">
                 <Link to="/profile">
-                  <Button variant="ghost" size="icon" className="rounded-full">
-                    <User size={20} />
+                  <Button variant="ghost" size="icon" className="rounded-full bg-blue-50">
+                    <User size={20} className="text-blue-600" />
                   </Button>
                 </Link>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  onClick={handleSignOut} 
-                  className="rounded-full"
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleSignOut}
+                  className="rounded-full bg-blue-50"
                 >
-                  <LogOut size={20} />
+                  <LogOut size={20} className="text-blue-600" />
                 </Button>
               </div>
             )}
           </div>
         </nav>
       </div>
-      
+
       {/* Mobile overlay */}
-      <Button 
-        variant="outline" 
-        size="icon" 
-        onClick={toggleSidebar} 
+      <Button
+        variant="outline"
+        size="icon"
+        onClick={toggleSidebar}
         className="fixed bottom-4 right-4 rounded-full shadow-lg md:hidden z-50"
       >
         <Menu size={20} />

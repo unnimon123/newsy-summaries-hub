@@ -7,49 +7,18 @@ import { useEffect, useState } from "react";
 export default function AdminRoute() {
   const { isAdmin, loading, initialLoadDone, user } = useAuth();
   const location = useLocation();
-  const [isVerifying, setIsVerifying] = useState(true);
-  
-  // Additional timer to prevent infinite loading
-  useEffect(() => {
-    console.log("AdminRoute mounted with path:", location.pathname);
-    
-    // Set a maximum verification time to prevent infinite loading
-    const timeoutId = setTimeout(() => {
-      console.log("Admin verification timeout reached, forcing completion");
-      setIsVerifying(false);
-    }, 1000); // Reduced timeout for faster fallback
-    
-    // If auth is already loaded, we don't need to wait
-    if (initialLoadDone) {
-      console.log("Auth already loaded, proceeding immediately");
-      setIsVerifying(false);
-      clearTimeout(timeoutId);
-    }
-    
-    return () => {
-      clearTimeout(timeoutId);
-    };
-  }, [initialLoadDone, location.pathname]);
-  
-  useEffect(() => {
-    if (initialLoadDone) {
-      console.log("Auth loading complete, setting verification to false");
-      setIsVerifying(false);
-    }
-  }, [initialLoadDone]);
-  
+
   // Debug info
-  console.log("AdminRoute check:", { 
-    isAdmin, 
-    loading, 
+  console.log("AdminRoute check:", {
+    isAdmin,
+    loading,
     initialLoadDone,
-    isVerifying,
-    hasUser: !!user, 
-    path: location.pathname 
+    hasUser: !!user,
+    path: location.pathname
   });
 
-  // Show loader only during initial verification
-  if ((isVerifying && !initialLoadDone) || loading) {
+  // Show loader only during initial auth loading
+  if (loading && !initialLoadDone) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="flex flex-col items-center">

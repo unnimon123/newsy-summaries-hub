@@ -14,10 +14,8 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
 const NewsManagement = () => {
-  const { isAdmin, initialLoadDone } = useAuth();
-  const navigate = useNavigate();
-  const [isVerifying, setIsVerifying] = useState(true);
-  
+  const { isAdmin } = useAuth();
+
   const {
     showForm,
     setShowForm,
@@ -36,44 +34,21 @@ const NewsManagement = () => {
     handleUpdateArticle,
     handleDeleteArticle
   } = useNewsManagement();
-  
-  // Verify admin access once auth is fully loaded
-  useEffect(() => {
-    console.log("NewsManagement: Checking admin status", { isAdmin, initialLoadDone });
-    
-    const timeoutId = setTimeout(() => {
-      setIsVerifying(false);
-    }, 1000);
-    
-    if (initialLoadDone) {
-      clearTimeout(timeoutId);
-      setIsVerifying(false);
-      
-      if (!isAdmin) {
-        console.log("Non-admin user attempted to access /news, redirecting to home");
-        toast.error("You don't have permission to access this page");
-        navigate('/', { replace: true });
-      }
-    }
-    
-    return () => clearTimeout(timeoutId);
-  }, [isAdmin, initialLoadDone, navigate]);
 
-  if (isVerifying && !initialLoadDone) {
-    return null; // Let the AdminRoute component handle the loading state
-  }
+  // No need for redundant admin verification here
+  // AdminRoute component already handles this check
 
   return (
     <MainLayout>
       <div className="flex flex-col gap-6">
-        <NewsManagementHeader 
-          showForm={showForm} 
-          setShowForm={setShowForm} 
+        <NewsManagementHeader
+          showForm={showForm}
+          setShowForm={setShowForm}
         />
 
         <Tabs value={statusFilter} onValueChange={(value) => setStatusFilter(value as NewsStatus)}>
-          <NewsManagementTabs 
-            value={statusFilter} 
+          <NewsManagementTabs
+            value={statusFilter}
             onValueChange={setStatusFilter}
           >
             <Button onClick={() => setShowForm(true)} disabled={showForm}>

@@ -29,14 +29,14 @@ export function useAuthProvider() {
         if (hash || search) {
           // Process the auth callback
           const { data, error } = await supabase.auth.getSession();
-          
+
           if (error) {
             console.error('Error during auth callback:', error);
             toast.error('Authentication failed');
             navigate('/auth/login');
             return;
           }
-          
+
           if (data.session) {
             toast.success('Authentication successful');
             navigate('/');
@@ -44,7 +44,7 @@ export function useAuthProvider() {
         }
       }
     };
-    
+
     handleAuthCallback();
   }, [location.pathname, navigate]);
 
@@ -52,7 +52,7 @@ export function useAuthProvider() {
   useEffect(() => {
     console.log("Auth provider initialization starting");
     let mounted = true;
-    
+
     // Safety timeout to prevent infinite loading
     const safetyTimeout = setTimeout(() => {
       if (mounted && !initialLoadDone) {
@@ -61,13 +61,13 @@ export function useAuthProvider() {
         setInitialLoadDone(true);
       }
     }, 3000); // Reduced from 5000 to 3000 for faster fallback
-    
+
     const initializeAuth = async () => {
       try {
         console.log("Getting session from Supabase");
         const { data: { session } } = await supabase.auth.getSession();
         console.log("Session received:", session ? "Session exists" : "No session");
-        
+
         if (mounted) {
           setSession(session);
           setUser(session?.user ?? null);
@@ -80,7 +80,7 @@ export function useAuthProvider() {
                 console.log("User profile fetched successfully");
                 setProfile(userProfile);
               }
-              
+
               const userRoleData = await fetchUserRole(session.user.id);
               if (userRoleData && mounted) {
                 console.log("User role fetched successfully:", userRoleData.role);
@@ -119,11 +119,11 @@ export function useAuthProvider() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log('Auth state changed:', event, "User:", session?.user?.email);
-        
+
         if (mounted) {
           setSession(session);
           setUser(session?.user ?? null);
-          
+
           if (event === 'SIGNED_OUT') {
             console.log("Signed out event detected, clearing auth state");
             setProfile(null);
@@ -138,7 +138,7 @@ export function useAuthProvider() {
               if (userProfile && mounted) {
                 setProfile(userProfile);
               }
-              
+
               const userRoleData = await fetchUserRole(session.user.id);
               if (userRoleData && mounted) {
                 setUserRole(userRoleData);
@@ -183,7 +183,7 @@ export function useAuthProvider() {
       });
 
       if (error) throw error;
-      
+
       toast.success("Signup successful! Please check your email for verification.");
       navigate('/auth/login');
     } catch (error: any) {
@@ -197,17 +197,20 @@ export function useAuthProvider() {
   async function signIn(email: string, password: string) {
     try {
       setLoading(true);
+      console.log("Signing in with email:", email);
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (error) throw error;
-      
+
+      console.log("Login process completed.");
       toast.success("Login successful!");
       navigate('/');
     } catch (error: any) {
       toast.error(error.error_description || error.message);
+      console.error("Login failed:", error);
       throw error; // Rethrow to be handled by caller
     } finally {
       setLoading(false);
@@ -217,24 +220,24 @@ export function useAuthProvider() {
   async function signOut() {
     try {
       setLoading(true);
-      
+
       const { error } = await supabase.auth.signOut();
-      
+
       if (error) throw error;
-      
+
       // Clear local state after successful signout
       setProfile(null);
       setUserRole(null);
       setUser(null);
       setSession(null);
-      
+
       toast.success("Signed out successfully");
       // Force redirect after signout
       navigate('/auth/login', { replace: true });
     } catch (error: any) {
       console.error('Sign out error:', error);
       toast.error(error.error_description || error.message);
-      
+
       // Even if there's an error, attempt to redirect
       navigate('/auth/login', { replace: true });
     } finally {
@@ -243,12 +246,12 @@ export function useAuthProvider() {
   }
 
   // Debug info
-  console.log("Auth provider state:", { 
-    hasUser: !!user, 
-    hasSession: !!session, 
-    isAdmin: userRole?.role === 'admin', 
-    loading, 
-    initialLoadDone 
+  console.log("Auth provider state:", {
+    hasUser: !!user,
+    hasSession: !!session,
+    isAdmin: userRole?.role === 'admin',
+    loading,
+    initialLoadDone
   });
 
   return {

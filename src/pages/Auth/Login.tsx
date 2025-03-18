@@ -38,8 +38,9 @@ export default function Login() {
     setIsSubmitting(true);
     try {
       await signIn(values.email, values.password);
+      // If we get here, login was successful
     } catch (error: any) {
-      setSubmitError(error.message);
+      setSubmitError(error.message || "Login failed. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -65,10 +66,10 @@ export default function Login() {
                     <FormItem>
                       <FormLabel>Email</FormLabel>
                       <FormControl>
-                        <Input 
-                          placeholder="your.email@example.com" 
-                          {...field} 
-                          disabled={isSubmitting} 
+                        <Input
+                          placeholder="your.email@example.com"
+                          {...field}
+                          disabled={isSubmitting}
                         />
                       </FormControl>
                       <FormMessage />
@@ -82,11 +83,11 @@ export default function Login() {
                     <FormItem>
                       <FormLabel>Password</FormLabel>
                       <FormControl>
-                        <Input 
+                        <Input
                           type="password"
-                          placeholder="••••••••" 
-                          {...field} 
-                          disabled={isSubmitting} 
+                          placeholder="••••••••"
+                          {...field}
+                          disabled={isSubmitting}
                         />
                       </FormControl>
                       <FormMessage />
@@ -94,7 +95,7 @@ export default function Login() {
                   )}
                 />
                 {submitError && (
-                  <div className="text-sm font-medium text-destructive">{submitError}</div>
+                  <div className="text-sm font-medium text-destructive">{submitError?.error_description || submitError}</div>
                 )}
                 <Button type="submit" className="w-full" disabled={isSubmitting}>
                   {isSubmitting ? (
@@ -112,8 +113,8 @@ export default function Login() {
           <CardFooter className="flex flex-col">
             <div className="mt-2 text-center text-sm">
               Don't have an account?{" "}
-              <Link 
-                to="/auth/register" 
+              <Link
+                to="/auth/register"
                 className="font-medium text-blue-600 hover:text-blue-500"
               >
                 Sign up

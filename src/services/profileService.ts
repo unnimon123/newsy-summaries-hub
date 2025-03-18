@@ -73,6 +73,7 @@ export async function fetchUserRole(userId: string): Promise<UserRole | null> {
     }
 
     console.log('Role fetched successfully:', data?.role);
+    console.log('Full role data:', data);
     return data as UserRole;
   } catch (error) {
     console.error('Unexpected error fetching role:', error);
