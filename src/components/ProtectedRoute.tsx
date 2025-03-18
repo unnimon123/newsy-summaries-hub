@@ -4,51 +4,54 @@ import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 
+/**
+ * A route component that protects content requiring authentication
+ * Redirects unauthenticated users to the login page
+ */
 export default function ProtectedRoute() {
   const { user, loading, initialLoadDone } = useAuth();
   const location = useLocation();
-  const [isVerifying, setIsVerifying] = useState(true);
+  const [isReady, setIsReady] = useState(false);
   
-  // Additional timer to prevent infinite loading
+  // Handle auth verification with safety timeout
   useEffect(() => {
     console.log("ProtectedRoute mounted with path:", location.pathname);
     
-    // Set a maximum verification time to prevent infinite loading
-    const timeoutId = setTimeout(() => {
-      console.log("Auth verification timeout reached, forcing completion");
-      setIsVerifying(false);
-    }, 2000); // Reduced timeout for faster fallback
-    
-    // If auth is already loaded, we don't need to wait
+    // Set ready state immediately if auth is already loaded
     if (initialLoadDone) {
       console.log("Auth already loaded, proceeding immediately");
-      setIsVerifying(false);
-      clearTimeout(timeoutId);
+      setIsReady(true);
+      return;
     }
     
-    return () => {
-      clearTimeout(timeoutId);
-    };
+    // Safety timeout to prevent infinite loading
+    const timeoutId = setTimeout(() => {
+      console.log("Auth verification timeout reached, proceeding anyway");
+      setIsReady(true);
+    }, 2000);
+    
+    return () => clearTimeout(timeoutId);
   }, [initialLoadDone, location.pathname]);
   
+  // Update ready state when auth loading completes
   useEffect(() => {
-    if (initialLoadDone) {
-      console.log("Auth loading complete, setting verification to false");
-      setIsVerifying(false);
+    if (initialLoadDone && !isReady) {
+      console.log("Auth loading complete, setting ready state");
+      setIsReady(true);
     }
-  }, [initialLoadDone]);
+  }, [initialLoadDone, isReady]);
 
   // Debug info
   console.log("ProtectedRoute state:", { 
-    user: !!user, 
+    hasUser: !!user, 
     loading, 
     initialLoadDone,
-    isVerifying,
+    isReady,
     path: location.pathname 
   });
 
-  // Show loader only during verification, with a clear condition to avoid endless loading
-  if (isVerifying && !initialLoadDone) {
+  // Show loader only during initial verification
+  if (!isReady && loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="flex flex-col items-center">
