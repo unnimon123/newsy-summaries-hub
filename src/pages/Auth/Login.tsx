@@ -95,7 +95,7 @@ export default function Login() {
                   )}
                 />
                 {submitError && (
-                  <div className="text-sm font-medium text-destructive">{submitError?.error_description || submitError}</div>
+                  <div className="text-sm font-medium text-destructive">{submitError}</div>
                 )}
                 <Button type="submit" className="w-full" disabled={isSubmitting}>
                   {isSubmitting ? (
