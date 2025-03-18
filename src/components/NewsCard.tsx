@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { NewsArticle } from "./NewsForm";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import SaveArticleButton from "./SaveArticleButton";
 
 interface NewsCardProps {
   article: NewsArticle;
@@ -129,6 +130,7 @@ const NewsCard = ({ article, onEdit, onDelete, viewOnly = false }: NewsCardProps
                 )}
               </div>
             </div>
+            {article.id && <SaveArticleButton articleId={article.id} size="icon" showText={false} />}
           </div>
         </CardHeader>
         <CardContent className="py-2 flex-grow">
