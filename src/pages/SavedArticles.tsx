@@ -45,13 +45,13 @@ export default function SavedArticlesPage() {
       id: savedItem.article.id,
       title: savedItem.article.title,
       summary: savedItem.article.summary,
-      content: savedItem.article.content,
       category: savedItem.article.category_id,
       imageUrl: savedItem.article.image_path,
       sourceUrl: savedItem.article.source_url,
       sourceName: savedItem.article.source_name,
       timestamp: savedItem.article.created_at,
       status: savedItem.article.status,
+      // Remove the 'content' property as it doesn't exist in the NewsArticle type
     };
 
     return (
