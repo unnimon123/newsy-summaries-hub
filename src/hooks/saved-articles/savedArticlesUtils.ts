@@ -36,7 +36,7 @@ export function groupArticlesByDate(articles: SavedArticleWithDetails[]) {
   if (!articles?.length) return {};
   
   return articles.reduce((groups: Record<string, SavedArticleWithDetails[]>, article) => {
-    const date = article.created_at ? new Date(article.created_at).toDateString() : 'Unknown';
+    const date = article.saved_at ? new Date(article.saved_at).toDateString() : 'Unknown';
     
     if (!groups[date]) {
       groups[date] = [];
@@ -52,8 +52,8 @@ export function sortArticlesByDate(articles: SavedArticleWithDetails[]): SavedAr
   if (!articles?.length) return [];
   
   return [...articles].sort((a, b) => {
-    if (!a.created_at) return 1;
-    if (!b.created_at) return -1;
-    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    if (!a.saved_at) return 1;
+    if (!b.saved_at) return -1;
+    return new Date(b.saved_at).getTime() - new Date(a.saved_at).getTime();
   });
 }
