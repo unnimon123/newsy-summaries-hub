@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { NavLink, Link, useNavigate } from "react-router-dom";
 import {
   BarChart3,
@@ -14,6 +14,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,9 +35,11 @@ const Sidebar = () => {
     try {
       console.log("Signing out user");
       await signOut();
+      toast.success("Signed out successfully");
       // Navigation is handled in the signOut function
     } catch (error) {
       console.error("Error signing out:", error);
+      toast.error("Failed to sign out. Please try again.");
       // If signOut fails, try to force navigation
       navigate('/auth/login', { replace: true });
     }
@@ -61,6 +64,11 @@ const Sidebar = () => {
     ? [...commonRoutes, ...adminRoutes]
     : commonRoutes;
 
+  useEffect(() => {
+    // Log admin status when it changes
+    console.log("Sidebar admin status updated:", isAdmin);
+  }, [isAdmin]);
+
   return (
     <>
       <div className={cn(
@@ -69,7 +77,9 @@ const Sidebar = () => {
       )}>
         <div className="flex items-center justify-between h-16 px-4 border-b border-gray-200">
           {!collapsed && (
-            <h1 className="text-xl font-bold text-blue-700">News Admin</h1>
+            <Link to="/" className="text-xl font-bold text-blue-700">
+              News Admin
+            </Link>
           )}
           <Button
             variant="ghost"
@@ -110,7 +120,7 @@ const Sidebar = () => {
                     <User size={16} className="text-blue-600" />
                   </div>
                   <div className="ml-3">
-                    <p className="text-sm font-medium">{profile?.username || user?.email}</p>
+                    <p className="text-sm font-medium truncate max-w-[120px]">{profile?.username || user?.email}</p>
                     <p className="text-xs text-gray-500">{isAdmin ? 'Admin' : 'User'}</p>
                   </div>
                 </div>

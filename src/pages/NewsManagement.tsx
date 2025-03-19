@@ -2,19 +2,31 @@
 import MainLayout from "@/components/MainLayout";
 import { Tabs } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { PlusCircle } from "lucide-react";
+import { PlusCircle, ShieldAlert } from "lucide-react";
 import NewsManagementHeader from "@/components/news-management/NewsManagementHeader";
 import NewsManagementTabs from "@/components/news-management/NewsManagementTabs";
 import NewsManagementContent from "@/components/news-management/NewsManagementContent";
 import { useNewsManagement } from "@/hooks/useNewsManagement";
 import { NewsStatus } from "@/hooks/useNewsArticles";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
 const NewsManagement = () => {
-  const { isAdmin } = useAuth();
+  const { isAdmin, userRole } = useAuth();
+  const navigate = useNavigate();
+
+  // Log admin status
+  useEffect(() => {
+    console.log("NewsManagement page - Admin status:", { isAdmin, userRole: userRole?.role });
+    
+    // Verify admin access when component mounts
+    if (userRole && userRole.role !== 'admin') {
+      toast.error("You don't have permission to access this page");
+      navigate('/', { replace: true });
+    }
+  }, [isAdmin, userRole, navigate]);
 
   const {
     showForm,
@@ -35,8 +47,20 @@ const NewsManagement = () => {
     handleDeleteArticle
   } = useNewsManagement();
 
-  // No need for redundant admin verification here
-  // AdminRoute component already handles this check
+  // Double-check admin access
+  if (!isAdmin) {
+    return (
+      <MainLayout>
+        <div className="flex flex-col items-center justify-center min-h-[80vh]">
+          <ShieldAlert className="w-12 h-12 text-destructive mb-4" />
+          <h1 className="text-2xl font-bold mb-2">Access Denied</h1>
+          <p className="text-muted-foreground text-center">
+            You don't have permission to access News Management.
+          </p>
+        </div>
+      </MainLayout>
+    );
+  }
 
   return (
     <MainLayout>

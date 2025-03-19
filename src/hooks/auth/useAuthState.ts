@@ -109,6 +109,7 @@ export function useAuthState() {
 
               const userRoleData = await fetchUserRole(session.user.id);
               if (userRoleData && mounted) {
+                console.log("User role successfully fetched:", userRoleData.role);
                 setUserRole(userRoleData);
               }
             } catch (error) {
@@ -138,6 +139,11 @@ export function useAuthState() {
     };
   }, []);
 
+  // Calculate isAdmin from userRole for consistent admin detection
+  const isAdmin = userRole?.role === 'admin';
+  
+  console.log("Auth state calculated isAdmin:", isAdmin, "userRole:", userRole?.role);
+
   return {
     session,
     user,
@@ -145,7 +151,7 @@ export function useAuthState() {
     userRole,
     loading,
     initialLoadDone,
-    isAdmin: userRole?.role === 'admin',
+    isAdmin,
     setProfile, // Export setter for when profile is updated
     setUserRole, // Export setter for when role is updated
     setSession, // Export setter for manual session updates

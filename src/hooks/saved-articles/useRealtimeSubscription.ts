@@ -1,8 +1,9 @@
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import type { SavedArticleWithDetails } from './savedArticlesApi';
+import { toast } from 'sonner';
 
 type SubscriptionHandler = {
   onInsert: (article: SavedArticleWithDetails) => void;
@@ -14,16 +15,19 @@ export function useRealtimeSubscription(
   userId: string | undefined,
   handlers: SubscriptionHandler
 ) {
-  useEffect(() => {
-    let channel: RealtimeChannel;
+  const channelRef = useRef<RealtimeChannel | null>(null);
 
-    const setupRealtime = () => {
-      if (!userId) return;
+  useEffect(() => {
+    if (!userId) {
+      console.log('No userId provided for realtime subscription');
+      return;
+    }
       
-      console.log('Setting up realtime subscription for saved articles');
-      
-      channel = supabase
-        .channel('saved-articles-changes')
+    console.log('Setting up realtime subscription for saved articles');
+    
+    const setupChannel = () => {
+      channelRef.current = supabase
+        .channel(`saved-articles-changes-${userId}`)
         .on('postgres_changes', 
           {
             event: 'INSERT',
@@ -34,19 +38,27 @@ export function useRealtimeSubscription(
           async (payload) => {
             console.log('INSERT event received for saved article:', payload);
             
-            // Fetch the complete article details for the newly saved article
-            const { data: articleData } = await supabase
-              .from('news')
-              .select('*')
-              .eq('id', payload.new.article_id)
-              .single();
+            try {
+              // Fetch the complete article details for the newly saved article
+              const { data: articleData, error } = await supabase
+                .from('news')
+                .select('*')
+                .eq('id', payload.new.article_id)
+                .single();
+                
+              if (error) throw error;
               
-            const newSavedArticle = {
-              ...payload.new as any,
-              article: articleData
-            };
-            
-            handlers.onInsert(newSavedArticle);
+              const newSavedArticle = {
+                ...payload.new as any,
+                article: articleData
+              };
+              
+              handlers.onInsert(newSavedArticle);
+              toast.success('Article saved successfully');
+            } catch (error) {
+              console.error('Error processing INSERT event:', error);
+              toast.error('Failed to process saved article');
+            }
           }
         )
         .on('postgres_changes', 
@@ -58,7 +70,11 @@ export function useRealtimeSubscription(
           },
           (payload) => {
             console.log('UPDATE event received for saved article:', payload);
-            handlers.onUpdate(payload.new as any);
+            try {
+              handlers.onUpdate(payload.new as any);
+            } catch (error) {
+              console.error('Error processing UPDATE event:', error);
+            }
           }
         )
         .on('postgres_changes', 
@@ -70,7 +86,12 @@ export function useRealtimeSubscription(
           },
           (payload) => {
             console.log('DELETE event received for saved article:', payload);
-            handlers.onDelete(payload.old.id);
+            try {
+              handlers.onDelete(payload.old.id);
+              toast.success('Article removed from saved list');
+            } catch (error) {
+              console.error('Error processing DELETE event:', error);
+            }
           }
         )
         .subscribe((status) => {
@@ -81,15 +102,14 @@ export function useRealtimeSubscription(
         });
     };
 
-    if (userId) {
-      setupRealtime();
-    }
+    setupChannel();
 
     // Cleanup function
     return () => {
       console.log('Cleaning up realtime subscription for saved articles');
-      if (channel) {
-        supabase.removeChannel(channel);
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
       }
     };
   }, [userId, handlers]);
