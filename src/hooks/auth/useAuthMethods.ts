@@ -61,14 +61,25 @@ export function useAuthMethods() {
   async function signOut() {
     try {
       setLoading(true);
+      console.log("Attempting to sign out user...");
 
       const { error } = await supabase.auth.signOut();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Sign out error:", error);
+        throw error;
+      }
 
+      console.log("Sign out successful, redirecting to login page");
       toast.success("Signed out successfully");
-      // Force redirect after signout
-      navigate('/auth/login', { replace: true });
+      
+      // Clear any session data from local storage
+      localStorage.removeItem('supabase.auth.token');
+      
+      // Force redirect after signout - with a slight delay to ensure Supabase auth state updates
+      setTimeout(() => {
+        navigate('/auth/login', { replace: true });
+      }, 100);
     } catch (error: any) {
       console.error('Sign out error:', error);
       toast.error(error.error_description || error.message);

@@ -19,7 +19,11 @@ const NewsManagement = () => {
 
   // Log admin status
   useEffect(() => {
-    console.log("NewsManagement page - Admin status:", { isAdmin, userRole: userRole?.role });
+    console.log("NewsManagement page - Admin status:", { 
+      isAdmin, 
+      userRole: userRole?.role,
+      hasRole: !!userRole
+    });
     
     // Verify admin access when component mounts
     if (userRole && userRole.role !== 'admin') {
@@ -56,6 +60,7 @@ const NewsManagement = () => {
           <h1 className="text-2xl font-bold mb-2">Access Denied</h1>
           <p className="text-muted-foreground text-center">
             You don't have permission to access News Management.
+            {userRole ? ` Your role is: ${userRole.role}` : ' No role assigned.'}
           </p>
         </div>
       </MainLayout>

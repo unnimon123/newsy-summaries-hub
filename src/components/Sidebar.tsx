@@ -33,9 +33,9 @@ const Sidebar = () => {
 
   const handleSignOut = async () => {
     try {
-      console.log("Signing out user");
+      console.log("Signing out user with signOut function");
       await signOut();
-      toast.success("Signed out successfully");
+      console.log("SignOut function completed");
       // Navigation is handled in the signOut function
     } catch (error) {
       console.error("Error signing out:", error);
@@ -56,18 +56,15 @@ const Sidebar = () => {
     { path: "/analytics", label: "Analytics", icon: BarChart3 },
   ];
 
-  // Combine routes based on user role
-  // Force debug output to help diagnose admin role issues
-  console.log("Sidebar rendering with isAdmin:", isAdmin, "userRole:", userRole);
+  // Debug admin role detection
+  useEffect(() => {
+    console.log("Sidebar admin role check:", { isAdmin, userRole: userRole?.role });
+  }, [isAdmin, userRole]);
 
+  // Combine routes based on user role
   const navItems = isAdmin
     ? [...commonRoutes, ...adminRoutes]
     : commonRoutes;
-
-  useEffect(() => {
-    // Log admin status when it changes
-    console.log("Sidebar admin status updated:", isAdmin);
-  }, [isAdmin]);
 
   return (
     <>

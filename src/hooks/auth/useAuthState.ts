@@ -41,7 +41,7 @@ export function useAuthState() {
           setUser(session?.user ?? null);
 
           if (session?.user) {
-            console.log("Fetching user profile and role");
+            console.log("Fetching user profile and role for user ID:", session.user.id);
             try {
               const userProfile = await fetchUserProfile(session.user.id);
               if (userProfile && mounted) {
@@ -53,9 +53,13 @@ export function useAuthState() {
               if (userRoleData && mounted) {
                 console.log("User role fetched successfully:", userRoleData.role);
                 setUserRole(userRoleData);
+              } else {
+                console.warn("No user role data returned from fetchUserRole");
+                setUserRole({ role: 'user' }); // Default to user if no role found
               }
             } catch (profileError) {
               console.error("Error fetching profile or role:", profileError);
+              setUserRole({ role: 'user' }); // Default to user on error
             } finally {
               if (mounted) {
                 setLoading(false);
@@ -100,7 +104,7 @@ export function useAuthState() {
             setLoading(false);
             clearTimeout(safetyTimeout);
           } else if (session?.user) {
-            console.log("User authenticated, fetching profile data");
+            console.log("User authenticated, fetching profile data for user ID:", session.user.id);
             try {
               const userProfile = await fetchUserProfile(session.user.id);
               if (userProfile && mounted) {
@@ -111,9 +115,13 @@ export function useAuthState() {
               if (userRoleData && mounted) {
                 console.log("User role successfully fetched:", userRoleData.role);
                 setUserRole(userRoleData);
+              } else {
+                console.warn("No user role data returned during auth change");
+                setUserRole({ role: 'user' }); // Default to user if no role found
               }
             } catch (error) {
               console.error("Error fetching profile/role during auth change:", error);
+              setUserRole({ role: 'user' }); // Default to user on error
             } finally {
               if (mounted) {
                 setInitialLoadDone(true);

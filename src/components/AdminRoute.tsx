@@ -9,7 +9,7 @@ import { useEffect, useState } from "react";
  * Redirects to login if not authenticated, or home if authenticated but not admin
  */
 export default function AdminRoute() {
-  const { isAdmin, loading, initialLoadDone, user } = useAuth();
+  const { isAdmin, loading, initialLoadDone, user, userRole } = useAuth();
   const location = useLocation();
   const [isReady, setIsReady] = useState(false);
 
@@ -19,6 +19,7 @@ export default function AdminRoute() {
     loading,
     initialLoadDone,
     hasUser: !!user,
+    userRole: userRole?.role,
     path: location.pathname
   });
 
@@ -77,6 +78,7 @@ export default function AdminRoute() {
         <h1 className="text-2xl font-bold mb-2">Access Denied</h1>
         <p className="text-muted-foreground text-center mb-6">
           You don't have permission to access this area.
+          {userRole ? ` Your role is: ${userRole.role}` : ' No role assigned.'}
         </p>
         <a href="/" className="text-primary hover:underline">
           Return to Dashboard
