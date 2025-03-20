@@ -1,258 +1,163 @@
 
 import { useState, useEffect } from "react";
-import { useAuth } from "@/contexts/AuthContext";
 import MainLayout from "@/components/MainLayout";
-import { z } from "zod";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Switch } from "@/components/ui/switch";
-import { Loader2, Save } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Checkbox } from "@/components/ui/checkbox";
+import { supabase } from "@/integrations/supabase/client";
+import { updateProfile } from "@/services/profileService";
+import { useAuthState } from "@/hooks/auth/useAuthState";
+import NotificationPreferences from "@/components/notifications/NotificationPreferences";
 
-const formSchema = z.object({
-  username: z.string().min(3, {
-    message: "Username must be at least 3 characters.",
-  }),
-  notificationPreferences: z.object({
-    push: z.boolean(),
-    email: z.boolean(),
-    subscriptions: z.array(z.string()),
-  }),
-});
+interface Profile {
+  id: string;
+  username?: string;
+  email?: string;
+  avatar_url?: string;
+  bio?: string;
+  notification_preferences?: {
+    push_enabled: boolean;
+    subscriptions: string[];
+    fcm_token: string | null;
+  };
+}
 
-const SUBSCRIPTION_TYPES = [
-  { id: "all", label: "All Notifications" },
-  { id: "education", label: "Foreign Education" },
-  { id: "visa", label: "Visa Updates" },
-  { id: "scholarship", label: "Scholarship Opportunities" },
-  { id: "course", label: "Course Announcements" },
-  { id: "immigration", label: "Immigration News" },
-];
+const Profile = () => {
+  const { user } = useAuthState();
+  const [loading, setLoading] = useState(true);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [username, setUsername] = useState("");
+  const [bio, setBio] = useState("");
+  const [saving, setSaving] = useState(false);
 
-export default function Profile() {
-  const { user, profile, loading: authLoading } = useAuth();
-  const [loading, setLoading] = useState(false);
+  // Default notification preferences
+  const defaultNotificationPreferences = {
+    push_enabled: true,
+    subscriptions: ["all"],
+    fcm_token: null
+  };
 
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      username: profile?.username || "",
-      notificationPreferences: {
-        push: profile?.notification_preferences?.push_enabled || true,
-        email: profile?.notification_preferences?.email || false,
-        subscriptions: profile?.notification_preferences?.subscriptions || ["all"],
-      },
-    },
-  });
-
-  // Update form when profile data loads
   useEffect(() => {
-    if (profile) {
-      form.reset({
-        username: profile.username || "",
-        notificationPreferences: {
-          push: profile.notification_preferences?.push_enabled || true,
-          email: profile.notification_preferences?.email || false,
-          subscriptions: profile.notification_preferences?.subscriptions || ["all"],
-        },
-      });
+    if (user) {
+      fetchProfile();
     }
-  }, [profile, form]);
+  }, [user]);
 
-  async function onSubmit(values: z.infer<typeof formSchema>) {
-    if (!user) return;
-    
-    setLoading(true);
+  const fetchProfile = async () => {
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          username: values.username,
-          notification_preferences: {
-            push_enabled: values.notificationPreferences.push,
-            email: values.notificationPreferences.email,
-            subscriptions: values.notificationPreferences.subscriptions,
-            fcm_token: profile?.notification_preferences?.fcm_token || null,
-          },
-        })
-        .eq('id', user.id);
-
+      setLoading(true);
+      
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user?.id)
+        .single();
+      
       if (error) throw error;
       
-      toast.success("Profile updated successfully");
+      setProfile(data);
+      setUsername(data.username || "");
+      setBio(data.bio || "");
     } catch (error: any) {
-      toast.error(error.message || "Error updating profile");
-      console.error("Error updating profile:", error);
+      console.error("Error fetching profile:", error);
+      toast.error("Failed to load profile");
     } finally {
       setLoading(false);
     }
-  }
+  };
 
-  if (authLoading) {
-    return (
-      <MainLayout>
-        <div className="flex items-center justify-center min-h-[70vh]">
-          <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
-        </div>
-      </MainLayout>
-    );
-  }
+  const handleSave = async () => {
+    try {
+      if (!user) return;
+      
+      setSaving(true);
+      
+      await updateProfile({
+        id: user.id,
+        username,
+        bio
+      });
+      
+      toast.success("Profile updated successfully");
+      await fetchProfile();
+    } catch (error: any) {
+      toast.error(error.message || "Failed to update profile");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <MainLayout>
-      <div className="container mx-auto py-6">
-        <h1 className="text-3xl font-bold mb-6">Your Profile</h1>
-        
-        <Card className="max-w-2xl mx-auto">
-          <CardHeader>
-            <CardTitle>Profile Settings</CardTitle>
-            <CardDescription>
-              Update your profile information and notification preferences
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                <FormField
-                  control={form.control}
-                  name="username"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Username</FormLabel>
-                      <FormControl>
-                        <Input {...field} disabled={loading} />
-                      </FormControl>
-                      <FormDescription>
-                        This is your public display name.
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <div className="space-y-4">
-                  <h3 className="text-lg font-medium">Notification Preferences</h3>
-                  
-                  <FormField
-                    control={form.control}
-                    name="notificationPreferences.push"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                        <div className="space-y-0.5">
-                          <FormLabel className="text-base">Push Notifications</FormLabel>
-                          <FormDescription>
-                            Receive push notifications about news and updates.
-                          </FormDescription>
-                        </div>
-                        <FormControl>
-                          <Switch
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                            disabled={loading}
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="notificationPreferences.email"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                        <div className="space-y-0.5">
-                          <FormLabel className="text-base">Email Notifications</FormLabel>
-                          <FormDescription>
-                            Receive email notifications about news and updates.
-                          </FormDescription>
-                        </div>
-                        <FormControl>
-                          <Switch
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                            disabled={loading}
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-4">
+          <h1 className="text-3xl font-bold tracking-tight">Profile</h1>
+          <p className="text-muted-foreground">
+            Manage your account settings and preferences.
+          </p>
+        </div>
 
-                  <FormField
-                    control={form.control}
-                    name="notificationPreferences.subscriptions"
-                    render={() => (
-                      <FormItem>
-                        <div className="mb-4">
-                          <FormLabel className="text-base">Notification Categories</FormLabel>
-                          <FormDescription>
-                            Select which types of notifications you'd like to receive
-                          </FormDescription>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {SUBSCRIPTION_TYPES.map((type) => (
-                            <FormField
-                              key={type.id}
-                              control={form.control}
-                              name="notificationPreferences.subscriptions"
-                              render={({ field }) => {
-                                return (
-                                  <FormItem
-                                    key={type.id}
-                                    className="flex flex-row items-start space-x-3 space-y-0"
-                                  >
-                                    <FormControl>
-                                      <Checkbox
-                                        checked={field.value?.includes(type.id)}
-                                        onCheckedChange={(checked) => {
-                                          return checked
-                                            ? field.onChange([...field.value, type.id])
-                                            : field.onChange(
-                                                field.value?.filter(
-                                                  (value) => value !== type.id
-                                                )
-                                              )
-                                        }}
-                                      />
-                                    </FormControl>
-                                    <FormLabel className="font-normal">
-                                      {type.label}
-                                    </FormLabel>
-                                  </FormItem>
-                                )
-                              }}
-                            />
-                          ))}
-                        </div>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                
-                <Button type="submit" disabled={loading} className="w-full">
-                  {loading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Saving...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="mr-2 h-4 w-4" />
-                      Save Changes
-                    </>
-                  )}
-                </Button>
-              </form>
-            </Form>
-          </CardContent>
-        </Card>
+        <div className="grid gap-6 md:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>Personal Information</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  value={user?.email || ""}
+                  disabled
+                  className="bg-muted"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Your email address is used for login and cannot be changed.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="username">Username</Label>
+                <Input
+                  id="username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="Enter your username"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="bio">Bio</Label>
+                <Input
+                  id="bio"
+                  value={bio}
+                  onChange={(e) => setBio(e.target.value)}
+                  placeholder="Tell us about yourself"
+                />
+              </div>
+
+              <Button
+                className="w-full"
+                onClick={handleSave}
+                disabled={saving}
+              >
+                {saving ? "Saving..." : "Save Changes"}
+              </Button>
+            </CardContent>
+          </Card>
+
+          {!loading && profile && (
+            <NotificationPreferences
+              preferences={profile.notification_preferences || defaultNotificationPreferences}
+              onUpdate={fetchProfile}
+            />
+          )}
+        </div>
       </div>
     </MainLayout>
   );
 };
+
+export default Profile;

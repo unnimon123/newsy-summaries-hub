@@ -63,24 +63,21 @@ export function useAuthMethods() {
       setLoading(true);
       console.log("Attempting to sign out user...");
 
-      // Remove FCM token when signing out
+      // Remove FCM token when signing out - simplified approach
       try {
-        const { data: user } = await supabase.auth.getUser();
-        if (user) {
+        const { data: userData } = await supabase.auth.getUser();
+        if (userData?.user) {
+          // Update the notification_preferences directly when signing out
           await supabase
             .from('profiles')
             .update({
-              notification_preferences: supabase.rpc('jsonb_deep_set', {
-                json: supabase.rpc('jsonb_get_or_create', {
-                  json: supabase.rpc('get_profile_notification_preferences', {
-                    profile_id: user.user?.id
-                  })
-                }),
-                path: ['fcm_token'],
-                value: null
-              })
+              notification_preferences: {
+                push_enabled: true,
+                subscriptions: ['all'],
+                fcm_token: null
+              }
             })
-            .eq('id', user.user?.id);
+            .eq('id', userData.user.id);
         }
       } catch (e) {
         console.error("Failed to clear FCM token:", e);

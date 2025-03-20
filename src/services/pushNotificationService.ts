@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { NotificationAudience } from "@/components/notifications/NotificationTypes";
 
 export interface PushNotificationData {
   title: string;
@@ -19,13 +20,16 @@ export async function sendPushNotification(data: PushNotificationData): Promise<
   try {
     // If scheduling for later, store in database only
     if (data.scheduleLater && data.scheduledTime) {
+      const audienceValue = data.audience as NotificationAudience;
+      
       const { error } = await supabase
         .from('notifications')
         .insert({
           title: data.title,
           body: data.body,
           user_id: data.userId || null,
-          audience: data.audience || 'all',
+          audience: audienceValue,
+          target_audience: data.audience || 'all',
           link_to_article: data.linkToArticle || null,
           scheduled_for: data.scheduledTime,
           type: 'mobile',
@@ -108,18 +112,15 @@ export async function updateFcmToken(fcmToken: string | null): Promise<void> {
     if (profileError) throw profileError;
     if (!profile.user) throw new Error("User not authenticated");
     
+    // Update the notification_preferences directly
     const { error } = await supabase
       .from('profiles')
       .update({
-        notification_preferences: supabase.rpc('jsonb_deep_set', {
-          json: supabase.rpc('jsonb_get_or_create', {
-            json: supabase.rpc('get_profile_notification_preferences', {
-              profile_id: profile.user.id
-            })
-          }),
-          path: ['fcm_token'],
-          value: fcmToken
-        })
+        notification_preferences: {
+          push_enabled: true,
+          subscriptions: ['all'],
+          fcm_token: fcmToken
+        }
       })
       .eq('id', profile.user.id);
 
@@ -151,7 +152,9 @@ export async function updateNotificationPreferences(
       
     if (fetchError) throw fetchError;
     
-    const currentPreferences = currentProfile.notification_preferences || {};
+    const currentPreferences = currentProfile?.notification_preferences || {};
+    
+    // Create updated preferences by merging current with new
     const updatedPreferences = {
       ...currentPreferences,
       ...(preferences.push_enabled !== undefined ? { push_enabled: preferences.push_enabled } : {}),
