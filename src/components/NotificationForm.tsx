@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 
@@ -22,6 +24,7 @@ export interface NotificationData {
   title: string;
   body: string;
   targetAudience: string;
+  notificationType: "web" | "mobile" | "both";
   linkToArticle?: string;
   scheduleLater: boolean;
   scheduledTime?: string;
@@ -32,6 +35,7 @@ const NotificationForm = ({ onSubmit }: NotificationFormProps) => {
     title: "",
     body: "",
     targetAudience: "all",
+    notificationType: "both",
     linkToArticle: "",
     scheduleLater: false,
     scheduledTime: "",
@@ -62,6 +66,10 @@ const NotificationForm = ({ onSubmit }: NotificationFormProps) => {
 
   const handleAudienceChange = (value: string) => {
     setFormData((prev) => ({ ...prev, targetAudience: value }));
+  };
+
+  const handleNotificationTypeChange = (value: "web" | "mobile" | "both") => {
+    setFormData((prev) => ({ ...prev, notificationType: value }));
   };
 
   const validateForm = (): boolean => {
@@ -107,6 +115,7 @@ const NotificationForm = ({ onSubmit }: NotificationFormProps) => {
         title: "",
         body: "",
         targetAudience: "all",
+        notificationType: "both",
         linkToArticle: "",
         scheduleLater: false,
         scheduledTime: "",
@@ -162,6 +171,28 @@ const NotificationForm = ({ onSubmit }: NotificationFormProps) => {
             {errors.body && (
               <p className="text-sm text-red-500">{errors.body}</p>
             )}
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="notificationType">Notification Type</Label>
+            <RadioGroup 
+              value={formData.notificationType} 
+              onValueChange={handleNotificationTypeChange as (value: string) => void}
+              className="flex space-x-4 pt-2"
+            >
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="web" id="web" />
+                <Label htmlFor="web">Web Only</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="mobile" id="mobile" />
+                <Label htmlFor="mobile">Mobile Only</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="both" id="both" />
+                <Label htmlFor="both">Both Platforms</Label>
+              </div>
+            </RadioGroup>
           </div>
           
           <div className="space-y-2">

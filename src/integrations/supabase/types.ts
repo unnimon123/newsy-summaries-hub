@@ -167,37 +167,49 @@ export type Database = {
       }
       notifications: {
         Row: {
+          audience: Database["public"]["Enums"]["notification_audience"]
           body: string
           created_at: string
           created_by: string | null
           id: string
+          is_read: boolean
           link_to_article: string | null
           scheduled_for: string | null
           sent_at: string | null
           target_audience: string
           title: string
+          type: string
+          user_id: string | null
         }
         Insert: {
+          audience?: Database["public"]["Enums"]["notification_audience"]
           body: string
           created_at?: string
           created_by?: string | null
           id?: string
+          is_read?: boolean
           link_to_article?: string | null
           scheduled_for?: string | null
           sent_at?: string | null
           target_audience: string
           title: string
+          type?: string
+          user_id?: string | null
         }
         Update: {
+          audience?: Database["public"]["Enums"]["notification_audience"]
           body?: string
           created_at?: string
           created_by?: string | null
           id?: string
+          is_read?: boolean
           link_to_article?: string | null
           scheduled_for?: string | null
           sent_at?: string | null
           target_audience?: string
           title?: string
+          type?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -292,10 +304,24 @@ export type Database = {
         }
         Returns: boolean
       }
+      mark_notification_read: {
+        Args: {
+          notification_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
       event_type: "view" | "share" | "save"
       news_status: "draft" | "published"
+      notification_audience:
+        | "all"
+        | "education"
+        | "visa"
+        | "scholarship"
+        | "course"
+        | "immigration"
+        | "individual"
       user_role: "admin" | "user"
     }
     CompositeTypes: {

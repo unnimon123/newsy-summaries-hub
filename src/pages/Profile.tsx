@@ -13,6 +13,7 @@ import { Switch } from "@/components/ui/switch";
 import { Loader2, Save } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const formSchema = z.object({
   username: z.string().min(3, {
@@ -21,8 +22,18 @@ const formSchema = z.object({
   notificationPreferences: z.object({
     push: z.boolean(),
     email: z.boolean(),
+    subscriptions: z.array(z.string()),
   }),
 });
+
+const SUBSCRIPTION_TYPES = [
+  { id: "all", label: "All Notifications" },
+  { id: "education", label: "Foreign Education" },
+  { id: "visa", label: "Visa Updates" },
+  { id: "scholarship", label: "Scholarship Opportunities" },
+  { id: "course", label: "Course Announcements" },
+  { id: "immigration", label: "Immigration News" },
+];
 
 export default function Profile() {
   const { user, profile, loading: authLoading } = useAuth();
@@ -33,8 +44,9 @@ export default function Profile() {
     defaultValues: {
       username: profile?.username || "",
       notificationPreferences: {
-        push: profile?.notification_preferences?.push || true,
+        push: profile?.notification_preferences?.push_enabled || true,
         email: profile?.notification_preferences?.email || false,
+        subscriptions: profile?.notification_preferences?.subscriptions || ["all"],
       },
     },
   });
@@ -45,8 +57,9 @@ export default function Profile() {
       form.reset({
         username: profile.username || "",
         notificationPreferences: {
-          push: profile.notification_preferences?.push || true,
+          push: profile.notification_preferences?.push_enabled || true,
           email: profile.notification_preferences?.email || false,
+          subscriptions: profile.notification_preferences?.subscriptions || ["all"],
         },
       });
     }
@@ -62,8 +75,10 @@ export default function Profile() {
         .update({
           username: values.username,
           notification_preferences: {
-            push: values.notificationPreferences.push,
+            push_enabled: values.notificationPreferences.push,
             email: values.notificationPreferences.email,
+            subscriptions: values.notificationPreferences.subscriptions,
+            fcm_token: profile?.notification_preferences?.fcm_token || null,
           },
         })
         .eq('id', user.id);
@@ -167,6 +182,57 @@ export default function Profile() {
                       </FormItem>
                     )}
                   />
+
+                  <FormField
+                    control={form.control}
+                    name="notificationPreferences.subscriptions"
+                    render={() => (
+                      <FormItem>
+                        <div className="mb-4">
+                          <FormLabel className="text-base">Notification Categories</FormLabel>
+                          <FormDescription>
+                            Select which types of notifications you'd like to receive
+                          </FormDescription>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {SUBSCRIPTION_TYPES.map((type) => (
+                            <FormField
+                              key={type.id}
+                              control={form.control}
+                              name="notificationPreferences.subscriptions"
+                              render={({ field }) => {
+                                return (
+                                  <FormItem
+                                    key={type.id}
+                                    className="flex flex-row items-start space-x-3 space-y-0"
+                                  >
+                                    <FormControl>
+                                      <Checkbox
+                                        checked={field.value?.includes(type.id)}
+                                        onCheckedChange={(checked) => {
+                                          return checked
+                                            ? field.onChange([...field.value, type.id])
+                                            : field.onChange(
+                                                field.value?.filter(
+                                                  (value) => value !== type.id
+                                                )
+                                              )
+                                        }}
+                                      />
+                                    </FormControl>
+                                    <FormLabel className="font-normal">
+                                      {type.label}
+                                    </FormLabel>
+                                  </FormItem>
+                                )
+                              }}
+                            />
+                          ))}
+                        </div>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 </div>
                 
                 <Button type="submit" disabled={loading} className="w-full">
@@ -189,4 +255,4 @@ export default function Profile() {
       </div>
     </MainLayout>
   );
-}
+};

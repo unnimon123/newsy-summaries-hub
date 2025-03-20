@@ -7,9 +7,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Clock, Send, Trash2, User } from "lucide-react";
+import { Clock, Send, Trash2, User, Smartphone, Globe } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { sendPushNotification } from "@/services/pushNotificationService";
 
 // Define the interface for notifications as they come from Supabase
 interface SupabaseNotification {
@@ -17,18 +18,25 @@ interface SupabaseNotification {
   title: string;
   body: string;
   target_audience: string;
+  audience: string;
+  type: string;
   link_to_article: string | null;
   sent_at: string | null;
   scheduled_for: string | null;
   created_at: string;
   created_by: string | null;
+  is_read: boolean;
+  user_id: string | null;
 }
 
 // Interface for our frontend notification model
-interface NotificationWithId extends NotificationData {
+interface NotificationWithId extends Omit<NotificationData, 'targetAudience'> {
   id: string;
+  targetAudience: string;
+  audience?: string;
   sent_at?: string;
   scheduled_for?: string;
+  type?: string;
 }
 
 const Notifications = () => {
@@ -38,6 +46,23 @@ const Notifications = () => {
 
   useEffect(() => {
     fetchNotifications();
+
+    // Setup realtime subscription for notifications
+    const channel = supabase
+      .channel('public:notifications')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'notifications' 
+      }, (payload) => {
+        console.log('Realtime notification update:', payload);
+        fetchNotifications();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   // Map Supabase notification to our frontend model
@@ -46,12 +71,15 @@ const Notifications = () => {
       id: data.id,
       title: data.title,
       body: data.body,
-      targetAudience: data.target_audience,
+      targetAudience: data.target_audience || data.audience || 'all',
+      audience: data.audience || data.target_audience,
       linkToArticle: data.link_to_article || undefined,
       scheduleLater: !!data.scheduled_for,
       scheduledTime: data.scheduled_for || undefined,
       sent_at: data.sent_at || undefined,
-      scheduled_for: data.scheduled_for || undefined
+      scheduled_for: data.scheduled_for || undefined,
+      notificationType: data.type as "web" | "mobile" | "both",
+      type: data.type
     };
   };
 
@@ -89,20 +117,37 @@ const Notifications = () => {
 
   const handleSendNotification = async (data: NotificationData) => {
     try {
-      const notificationData = {
-        title: data.title,
-        body: data.body,
-        target_audience: data.targetAudience,
-        link_to_article: data.linkToArticle || null,
-        scheduled_for: data.scheduleLater ? data.scheduledTime : null,
-        sent_at: data.scheduleLater ? null : new Date().toISOString(),
-      };
+      // For web-only or both platforms notifications, store in database directly
+      if (data.notificationType === 'web' || data.notificationType === 'both') {
+        const notificationData = {
+          title: data.title,
+          body: data.body,
+          target_audience: data.targetAudience,
+          audience: data.targetAudience,
+          link_to_article: data.linkToArticle || null,
+          scheduled_for: data.scheduleLater ? data.scheduledTime : null,
+          sent_at: data.scheduleLater ? null : new Date().toISOString(),
+          type: data.notificationType === 'both' ? 'web' : data.notificationType,
+        };
 
-      const { error } = await supabase
-        .from('notifications')
-        .insert(notificationData);
+        const { error } = await supabase
+          .from('notifications')
+          .insert(notificationData);
 
-      if (error) throw error;
+        if (error) throw error;
+      }
+      
+      // For mobile-only or both platforms notifications, use the edge function
+      if (data.notificationType === 'mobile' || data.notificationType === 'both') {
+        await sendPushNotification({
+          title: data.title,
+          body: data.body,
+          audience: data.targetAudience,
+          linkToArticle: data.linkToArticle,
+          scheduleLater: data.scheduleLater,
+          scheduledTime: data.scheduledTime,
+        });
+      }
       
       // Refresh notifications list
       await fetchNotifications();
@@ -139,6 +184,7 @@ const Notifications = () => {
       scholarship: "Scholarships",
       course: "Courses",
       immigration: "Immigration",
+      individual: "Individual User"
     };
     
     return audiences[audience] || audience;
@@ -146,6 +192,24 @@ const Notifications = () => {
 
   const formatDate = (dateString: string): string => {
     return format(new Date(dateString), "MMM d, yyyy 'at' h:mm a");
+  };
+
+  const getNotificationTypeIcon = (type: string) => {
+    switch (type) {
+      case 'web':
+        return <Globe className="h-4 w-4 mr-1" />;
+      case 'mobile':
+        return <Smartphone className="h-4 w-4 mr-1" />;
+      case 'both':
+        return (
+          <>
+            <Globe className="h-4 w-4 mr-1" />
+            <Smartphone className="h-4 w-4 mr-1" />
+          </>
+        );
+      default:
+        return <Globe className="h-4 w-4 mr-1" />;
+    }
   };
 
   return (
@@ -191,12 +255,15 @@ const Notifications = () => {
                       <div className="flex justify-between items-start">
                         <div>
                           <CardTitle>{notification.title}</CardTitle>
-                          <CardDescription className="mt-1">
+                          <CardDescription className="mt-1 flex items-center">
                             Sent: {notification.sent_at && formatDate(notification.sent_at)}
+                            <span className="ml-2 flex items-center text-xs">
+                              {getNotificationTypeIcon(notification.type || 'web')}
+                            </span>
                           </CardDescription>
                         </div>
                         <Badge variant="outline" className="bg-blue-50 text-blue-700">
-                          {getAudienceLabel(notification.targetAudience)}
+                          {getAudienceLabel(notification.audience || notification.targetAudience)}
                         </Badge>
                       </div>
                     </CardHeader>
@@ -245,8 +312,11 @@ const Notifications = () => {
                       <div className="flex justify-between items-start">
                         <div>
                           <CardTitle>{notification.title}</CardTitle>
-                          <CardDescription className="mt-1">
+                          <CardDescription className="mt-1 flex items-center">
                             Scheduled: {notification.scheduled_for && formatDate(notification.scheduled_for)}
+                            <span className="ml-2 flex items-center text-xs">
+                              {getNotificationTypeIcon(notification.type || 'web')}
+                            </span>
                           </CardDescription>
                         </div>
                         <Badge variant="outline" className="bg-yellow-50 text-yellow-700">
@@ -260,7 +330,7 @@ const Notifications = () => {
                         
                         <div className="flex items-center text-xs text-gray-500">
                           <User className="mr-1 h-3 w-3" />
-                          <span>To: {getAudienceLabel(notification.targetAudience)}</span>
+                          <span>To: {getAudienceLabel(notification.audience || notification.targetAudience)}</span>
                         </div>
                         
                         {notification.linkToArticle && (
