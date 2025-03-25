@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -40,6 +39,15 @@ const NewsForm = ({ article, onSubmit, onCancel }: NewsFormProps) => {
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [actionType, setActionType] = useState<'draft' | 'publish' | null>(null);
+
+  useEffect(() => {
+    // Reset submission state when actionType changes
+    return () => {
+      setIsSubmitting(false);
+      setActionType(null);
+    };
+  }, []);
 
   const handleChange = (name: string, value: string) => {
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -71,6 +79,7 @@ const NewsForm = ({ article, onSubmit, onCancel }: NewsFormProps) => {
 
   const handleSubmit = async (e: React.FormEvent, publishStatus?: "draft" | "published") => {
     e.preventDefault();
+    setActionType(publishStatus === 'published' ? 'publish' : 'draft');
     
     const validationErrors = validateNewsForm(formData, imageFile);
     if (Object.keys(validationErrors).length > 0) {
@@ -82,15 +91,22 @@ const NewsForm = ({ article, onSubmit, onCancel }: NewsFormProps) => {
     setIsSubmitting(true);
     
     try {
-      // Upload image if there's a new one
-      let imageUrl = formData.imageUrl;
+      // Upload image first if there's a new one
+      let finalImageUrl = formData.imageUrl;
       if (imageFile) {
-        imageUrl = await uploadImageToSupabase(imageFile, formData.imageUrl);
+        try {
+          finalImageUrl = await uploadImageToSupabase(imageFile, formData.imageUrl);
+        } catch (error) {
+          console.error("Image upload failed:", error);
+          toast.error("Failed to upload image. Please try again.");
+          setIsSubmitting(false);
+          return;
+        }
       }
       
       await onSubmit({
         ...formData,
-        imageUrl,
+        imageUrl: finalImageUrl,
         status: publishStatus || formData.status || "draft",
         timestamp: new Date().toISOString(),
       });
@@ -111,10 +127,21 @@ const NewsForm = ({ article, onSubmit, onCancel }: NewsFormProps) => {
       }
     } catch (error) {
       console.error("Error submitting article:", error);
-      toast.error("Failed to save article");
+      toast.error("Failed to save article. Please try again.");
     } finally {
       setIsSubmitting(false);
+      setActionType(null);
     }
+  };
+
+  const getButtonText = (type: 'draft' | 'publish') => {
+    if (isSubmitting && actionType === type) {
+      return type === 'publish' ? "Publishing..." : "Saving...";
+    }
+    if (article) {
+      return type === 'publish' ? "Publish" : "Update as Draft";
+    }
+    return type === 'publish' ? "Publish" : "Save as Draft";
   };
 
   return (
@@ -134,7 +161,12 @@ const NewsForm = ({ article, onSubmit, onCancel }: NewsFormProps) => {
         
         <CardFooter className="flex justify-between">
           {onCancel && (
-            <Button type="button" variant="outline" onClick={onCancel}>
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={onCancel}
+              disabled={isSubmitting}
+            >
               Cancel
             </Button>
           )}
@@ -143,7 +175,7 @@ const NewsForm = ({ article, onSubmit, onCancel }: NewsFormProps) => {
               type="submit" 
               disabled={isSubmitting}
             >
-              {isSubmitting ? "Saving..." : article ? "Update as Draft" : "Save as Draft"}
+              {getButtonText('draft')}
             </Button>
             <Button
               type="button"
@@ -151,7 +183,7 @@ const NewsForm = ({ article, onSubmit, onCancel }: NewsFormProps) => {
               onClick={(e) => handleSubmit(e, "published")}
               variant="secondary"
             >
-              {isSubmitting ? "Publishing..." : "Publish"}
+              {getButtonText('publish')}
             </Button>
           </div>
         </CardFooter>

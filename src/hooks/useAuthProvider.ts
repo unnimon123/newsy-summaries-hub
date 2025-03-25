@@ -1,5 +1,4 @@
-
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Session, User } from "@supabase/supabase-js";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -11,169 +10,285 @@ import { getRedirectUrl } from "@/utils/environmentUtils";
 /**
  * Hook for providing auth functionality and state
  */
+interface AuthState {
+  session: Session | null;
+  user: User | null;
+  profile: Profile | null;
+  userRole: UserRole | null;
+  loading: boolean;
+  initialLoadDone: boolean;
+}
+
 export function useAuthProvider() {
-  const [session, setSession] = useState<Session | null>(null);
-  const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [userRole, setUserRole] = useState<UserRole | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [initialLoadDone, setInitialLoadDone] = useState(false);
+  const [authState, setAuthState] = useState<AuthState>({
+    session: null,
+    user: null,
+    profile: null,
+    userRole: null,
+    loading: true,
+    initialLoadDone: false
+  });
+  
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Handle auth callback
-  useEffect(() => {
-    const handleAuthCallback = async () => {
-      if (location.pathname === '/auth/callback') {
-        const { hash, search } = window.location;
-        if (hash || search) {
-          // Process the auth callback
-          const { data, error } = await supabase.auth.getSession();
+  // Cache management
+  const dataCache = useRef<{
+    profile?: Profile;
+    userRole?: UserRole;
+    lastFetch: number;
+  }>({ lastFetch: 0 });
+  
+  // Strict initialization control
+  const hasInitialized = useRef(false);
+  const initializeAttempts = useRef(0);
+  const isInitializing = useRef(false);
+  const lastEventTimestamp = useRef(0);
 
-          if (error) {
-            console.error('Error during auth callback:', error);
-            toast.error('Authentication failed');
-            navigate('/auth/login');
-            return;
-          }
+  // Batch update auth state
+  const updateAuthState = (updates: Partial<AuthState>) => {
+    setAuthState(current => ({
+      ...current,
+      ...updates
+    }));
+  };
 
-          if (data.session) {
-            toast.success('Authentication successful');
-            navigate('/');
-          }
-        }
-      }
-    };
+  // Handle auth state change with deduplication
+  const handleAuthStateChange = async (newSession: Session | null, event?: string) => {
+    // Deduplicate events within 100ms window
+    const now = Date.now();
+    if (now - lastEventTimestamp.current < 100) {
+      console.log("Skipping duplicate auth event");
+      return;
+    }
+    lastEventTimestamp.current = now;
 
-    handleAuthCallback();
-  }, [location.pathname, navigate]);
+    console.log("Auth state handler:", { event, email: newSession?.user?.email });
 
-  // Initialize auth and subscribe to changes
-  useEffect(() => {
-    console.log("Auth provider initialization starting");
-    let mounted = true;
+    // For INITIAL_SESSION, just update basic state
+    if (event === 'INITIAL_SESSION') {
+      updateAuthState({
+        session: newSession,
+        user: newSession?.user ?? null
+      });
+      return;
+    }
 
-    // Safety timeout to prevent infinite loading
-    const safetyTimeout = setTimeout(() => {
-      if (mounted && !initialLoadDone) {
-        console.log("Safety timeout triggered: forcing initialLoadDone to true");
-        setLoading(false);
-        setInitialLoadDone(true);
-      }
-    }, 3000); // Reduced from 5000 to 3000 for faster fallback
+    // Handle sign out
+    if (event === 'SIGNED_OUT') {
+      await clearAuthState();
+      return;
+    }
 
-    const initializeAuth = async () => {
+    // Update basic auth state
+    updateAuthState({
+      session: newSession,
+      user: newSession?.user ?? null
+    });
+
+    // Fetch additional data if we have a user
+    if (newSession?.user) {
       try {
-        console.log("Getting session from Supabase");
-        const { data: { session } } = await supabase.auth.getSession();
-        console.log("Session received:", session ? "Session exists" : "No session");
+        // Check cache first
+        const cacheAge = Date.now() - dataCache.current.lastFetch;
+        if (cacheAge < 5000 && dataCache.current.profile && dataCache.current.userRole) {
+          console.log("Using cached profile and role data");
+          updateAuthState({
+            profile: dataCache.current.profile,
+            userRole: dataCache.current.userRole
+          });
+          return;
+        }
+
+        const [userProfile, userRoleData] = await Promise.all([
+          fetchUserProfile(newSession.user.id),
+          fetchUserRole(newSession.user.id)
+        ]);
+
+        // Update cache and state together
+        dataCache.current = {
+          profile: userProfile || undefined,
+          userRole: userRoleData || undefined,
+          lastFetch: Date.now()
+        };
+
+        if (userProfile) {
+          console.log("Profile loaded:", userProfile.id);
+        }
+
+        if (userRoleData) {
+          console.log("Role loaded:", userRoleData.role);
+          localStorage.setItem('userRole', userRoleData.role);
+        }
+
+        updateAuthState({
+          profile: userProfile,
+          userRole: userRoleData
+        });
+      } catch (error) {
+        console.error("Error loading user data:", error);
+        // Continue with available data
+      }
+    }
+  };
+
+  // Clear all auth state and storage
+  const clearAuthState = async () => {
+    updateAuthState({
+      session: null,
+      user: null,
+      profile: null,
+      userRole: null
+    });
+    
+    // Reset cache
+    dataCache.current = { lastFetch: 0 };
+    
+    // Clear all auth-related localStorage
+    localStorage.removeItem('userRole');
+    localStorage.removeItem('supabase.auth.token');
+    localStorage.removeItem('supabase.auth.refreshToken');
+    
+    // Reset Supabase auth state by signing out
+    if (authState.session) {
+      await supabase.auth.signOut();
+    }
+  };
+
+  // Initialize auth once
+  useEffect(() => {
+    let mounted = true;
+    let initializeTimeout: NodeJS.Timeout;
+
+    // Only initialize once
+    if (hasInitialized.current) {
+      console.log("Auth already initialized, skipping");
+      return;
+    }
+
+    console.log("Starting auth initialization");
+    hasInitialized.current = true;
+
+    const initialize = async () => {
+      if (isInitializing.current) {
+        console.log("Initialization already in progress");
+        return;
+      }
+      isInitializing.current = true;
+
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error("Session fetch error:", error);
+          if (error.message.includes('Invalid Refresh Token') || 
+              error.message.includes('Token expired') ||
+              error.status === 401) {
+            await clearAuthState();
+            navigate('/auth/login', { replace: true });
+          }
+          throw error;
+        }
 
         if (mounted) {
-          setSession(session);
-          setUser(session?.user ?? null);
-
           if (session?.user) {
-            console.log("Fetching user profile and role");
-            try {
-              const userProfile = await fetchUserProfile(session.user.id);
-              if (userProfile && mounted) {
-                console.log("User profile fetched successfully");
-                setProfile(userProfile);
-              }
-
-              const userRoleData = await fetchUserRole(session.user.id);
-              if (userRoleData && mounted) {
-                console.log("User role fetched successfully:", userRoleData.role);
-                setUserRole(userRoleData);
-              }
-            } catch (profileError) {
-              console.error("Error fetching profile or role:", profileError);
-            } finally {
-              if (mounted) {
-                setLoading(false);
-                setInitialLoadDone(true);
-                clearTimeout(safetyTimeout);
-              }
-            }
+            await handleAuthStateChange(session);
           } else {
-            console.log("No user in session, setting profile and role to null");
-            setProfile(null);
-            setUserRole(null);
-            setLoading(false);
-            setInitialLoadDone(true);
-            clearTimeout(safetyTimeout);
+            await clearAuthState();
+            if (!location.pathname.startsWith('/auth/')) {
+              navigate('/auth/login', { replace: true });
+            }
           }
         }
       } catch (error) {
-        console.error('Error initializing auth:', error);
+        console.error("Auth initialization failed:", error);
+        
+        if (initializeAttempts.current < 2) {
+          initializeAttempts.current++;
+          const backoffDelay = Math.pow(2, initializeAttempts.current) * 1000;
+          console.log(`Retrying initialization in ${backoffDelay}ms (${initializeAttempts.current}/2)`);
+          initializeTimeout = setTimeout(initialize, backoffDelay);
+          return;
+        } else {
+          await clearAuthState();
+          navigate('/auth/login', { replace: true });
+        }
+      } finally {
         if (mounted) {
-          setLoading(false);
-          setInitialLoadDone(true);
-          clearTimeout(safetyTimeout);
+          // Only mark initialization as complete after all data is loaded
+          const isFullyLoaded = authState.user ? (!!authState.profile && !!authState.userRole) : true;
+          if (isFullyLoaded) {
+            updateAuthState({
+              loading: false,
+              initialLoadDone: true
+            });
+          } else {
+            updateAuthState({
+              loading: false
+            });
+          }
+          isInitializing.current = false;
         }
       }
     };
 
-    initializeAuth();
-
+    // Set up auth subscription first with debounced handler
+    let authStateTimeout: NodeJS.Timeout;
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state changed:', event, "User:", session?.user?.email);
-
-        if (mounted) {
-          setSession(session);
-          setUser(session?.user ?? null);
-
+        if (!mounted) return;
+        
+        // Clear any pending state change
+        clearTimeout(authStateTimeout);
+        
+        console.log("Auth event:", event);
+        
+        // Debounce state changes to prevent rapid updates
+        authStateTimeout = setTimeout(async () => {
+          // Handle sign out event immediately
           if (event === 'SIGNED_OUT') {
-            console.log("Signed out event detected, clearing auth state");
-            setProfile(null);
-            setUserRole(null);
-            setInitialLoadDone(true);
-            setLoading(false);
-            clearTimeout(safetyTimeout);
-          } else if (session?.user) {
-            console.log("User authenticated, fetching profile data");
-            try {
-              const userProfile = await fetchUserProfile(session.user.id);
-              if (userProfile && mounted) {
-                setProfile(userProfile);
-              }
-
-              const userRoleData = await fetchUserRole(session.user.id);
-              if (userRoleData && mounted) {
-                setUserRole(userRoleData);
-              }
-            } catch (error) {
-              console.error("Error fetching profile/role during auth change:", error);
-            } finally {
-              if (mounted) {
-                setInitialLoadDone(true);
-                setLoading(false);
-                clearTimeout(safetyTimeout);
-              }
+            await clearAuthState();
+            if (!location.pathname.startsWith('/auth/')) {
+              navigate('/auth/login', { replace: true });
             }
-          } else {
-            console.log("Auth changed but no user, setting loading to false");
-            setLoading(false);
-            setInitialLoadDone(true);
-            clearTimeout(safetyTimeout);
+            return;
           }
-        }
+          
+          await handleAuthStateChange(session, event);
+          
+          // After handling auth state change, check if we can mark initialization as complete
+          const isFullyLoaded = authState.user ? (!!authState.profile && !!authState.userRole) : true;
+          if (isFullyLoaded && !authState.initialLoadDone) {
+            updateAuthState({
+              initialLoadDone: true
+            });
+          }
+        }, 100);
       }
     );
 
+    // Then initialize
+    initialize();
+
     return () => {
-      console.log("Auth provider cleanup");
+      console.log("Auth cleanup");
       mounted = false;
-      clearTimeout(safetyTimeout);
-      subscription.unsubscribe();
+      clearTimeout(authStateTimeout);
+      clearTimeout(initializeTimeout);
+      subscription?.unsubscribe();
+      
+      // Reset initialization flags when component unmounts
+      hasInitialized.current = false;
+      isInitializing.current = false;
+      initializeAttempts.current = 0;
+      dataCache.current = { lastFetch: 0 };
     };
-  }, [navigate, location.pathname]);
+  }, []);
 
   // Authentication methods
-  async function signUp(email: string, password: string, redirectUrl?: string) {
+  const signUp = async (email: string, password: string, redirectUrl?: string) => {
     try {
-      setLoading(true);
+      updateAuthState({ loading: true });
       const { error } = await supabase.auth.signUp({
         email,
         password,
@@ -183,87 +298,79 @@ export function useAuthProvider() {
       });
 
       if (error) throw error;
-
       toast.success("Signup successful! Please check your email for verification.");
       navigate('/auth/login');
     } catch (error: any) {
       toast.error(error.error_description || error.message);
-      throw error; // Rethrow to be handled by caller
+      throw error;
     } finally {
-      setLoading(false);
+      updateAuthState({ loading: false });
     }
-  }
+  };
 
-  async function signIn(email: string, password: string) {
+  const signIn = async (email: string, password: string) => {
     try {
-      setLoading(true);
-      console.log("Signing in with email:", email);
+      updateAuthState({ loading: true });
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (error) throw error;
-
-      console.log("Login process completed.");
       toast.success("Login successful!");
       navigate('/');
     } catch (error: any) {
       toast.error(error.error_description || error.message);
-      console.error("Login failed:", error);
-      throw error; // Rethrow to be handled by caller
+      throw error;
     } finally {
-      setLoading(false);
+      updateAuthState({ loading: false });
     }
-  }
+  };
 
-  async function signOut() {
+  const signOut = async () => {
     try {
-      setLoading(true);
-
+      updateAuthState({ loading: true });
       const { error } = await supabase.auth.signOut();
-
       if (error) throw error;
 
-      // Clear local state after successful signout
-      setProfile(null);
-      setUserRole(null);
-      setUser(null);
-      setSession(null);
-
+      await clearAuthState();
       toast.success("Signed out successfully");
-      // Force redirect after signout
       navigate('/auth/login', { replace: true });
     } catch (error: any) {
       console.error('Sign out error:', error);
       toast.error(error.error_description || error.message);
-
-      // Even if there's an error, attempt to redirect
+      
+      // Force clean state on error
+      await clearAuthState();
       navigate('/auth/login', { replace: true });
     } finally {
-      setLoading(false);
+      updateAuthState({ loading: false });
     }
-  }
+  };
 
-  // Debug info
-  console.log("Auth provider state:", {
-    hasUser: !!user,
-    hasSession: !!session,
-    isAdmin: userRole?.role === 'admin',
-    loading,
-    initialLoadDone
-  });
+    // Detailed debug info for troubleshooting
+    console.log("Auth state:", {
+      hasUser: !!authState.user,
+      hasSession: !!authState.session,
+      hasProfile: !!authState.profile,
+      hasRole: !!authState.userRole,
+      isAdmin: authState.userRole?.role === 'admin',
+      loading: authState.loading,
+      initialLoadDone: authState.initialLoadDone,
+      isInitializing: isInitializing.current,
+      hasInitialized: hasInitialized.current
+    });
 
   return {
-    session,
-    user,
-    profile,
-    userRole,
+    session: authState.session,
+    user: authState.user,
+    profile: authState.profile,
+    userRole: authState.userRole,
     signUp,
     signIn,
     signOut,
-    loading,
-    initialLoadDone,
-    isAdmin: userRole?.role === 'admin',
+    loading: authState.loading && !authState.initialLoadDone,
+    initialLoadDone: authState.initialLoadDone,
+    isAdmin: Boolean(authState.userRole?.role === 'admin'),
   };
 }

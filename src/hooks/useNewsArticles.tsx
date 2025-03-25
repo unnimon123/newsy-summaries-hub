@@ -1,6 +1,6 @@
-
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, UseQueryResult } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { PostgrestResponse, PostgrestSingleResponse } from '@supabase/supabase-js';
 import { toast } from "sonner";
 import { NewsArticle } from "@/components/NewsForm";
 
@@ -58,30 +58,49 @@ export const useNewsArticles = (statusFilter: NewsStatus) => {
     },
   });
 
-  // Create article mutation
+  // Create article mutation with enhanced error handling
   const createArticleMutation = useMutation({
-    mutationFn: async (article: NewsArticle) => {
-      console.log('Creating new article:', article);
-      // Map our form data to the database schema
-      const { data, error } = await supabase
-        .from('news')
-        .insert({
-          title: article.title,
-          summary: article.summary,
-          image_path: article.imageUrl,
-          source_url: article.sourceUrl,
-          category_id: article.category,
-          status: article.status || 'draft',
-          created_by: (await supabase.auth.getUser()).data.user?.id
-        })
-        .select();
-      
-      if (error) {
-        console.error('Error creating article:', error);
-        throw error;
+    mutationFn: async (article: NewsArticle): Promise<any> => {
+      let isTimedOut = false;
+      const timeoutId = setTimeout(() => {
+        isTimedOut = true;
+      }, 60000); // Increased to 60 seconds
+
+      try {
+        console.log('Creating new article:', article);
+        
+        const result = await Promise.race<PostgrestResponse<any>>([
+          supabase
+            .from('news')
+            .insert({
+              title: article.title,
+              summary: article.summary,
+              image_path: article.imageUrl,
+              source_url: article.sourceUrl,
+              category_id: article.category,
+              status: article.status || 'draft',
+              created_by: (await supabase.auth.getUser()).data.user?.id
+            })
+            .select(),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Operation timed out')), 60000)
+          )
+        ]);
+
+        clearTimeout(timeoutId);
+        if (isTimedOut) throw new Error('Operation timed out');
+
+        if (result && 'error' in result && result.error) {
+          console.error('Error creating article:', result.error);
+          throw result.error;
+        }
+        
+        return 'data' in result ? result.data : null;
+      } catch (error) {
+        clearTimeout(timeoutId);
+        console.error('Create article error:', error);
+        throw new Error(error instanceof Error ? error.message : 'Failed to create article');
       }
-      
-      return data;
     },
     onSuccess: () => {
       console.log('Article created successfully');
@@ -94,31 +113,60 @@ export const useNewsArticles = (statusFilter: NewsStatus) => {
     }
   });
 
-  // Update article mutation
+  // Update article mutation with enhanced error handling and retries
   const updateArticleMutation = useMutation({
-    mutationFn: async (article: NewsArticle) => {
-      if (!article.id) {
-        throw new Error("Article ID is required for updates");
-      }
-      
-      console.log('Updating article:', article);
-      
-      // Map our form data to the database schema
-      const { error } = await supabase
-        .from('news')
-        .update({
-          title: article.title,
-          summary: article.summary,
-          image_path: article.imageUrl,
-          source_url: article.sourceUrl,
-          category_id: article.category,
-          status: article.status || 'draft',
-        })
-        .eq('id', article.id);
-      
-      if (error) {
-        console.error('Error updating article:', error);
-        throw error;
+    mutationFn: async (article: NewsArticle): Promise<void> => {
+      let isTimedOut = false;
+      const timeoutId = setTimeout(() => {
+        isTimedOut = true;
+      }, 60000); // Increased to 60 seconds
+
+      try {
+        if (!article.id) {
+          throw new Error("Article ID is required for updates");
+        }
+        
+        console.log('Updating article:', article);
+        
+        // Implement retry logic for updates
+        const updateWithRetry = async (attempts = 0): Promise<void> => {
+          try {
+            const { error } = await supabase
+              .from('news')
+              .update({
+                title: article.title,
+                summary: article.summary,
+                image_path: article.imageUrl,
+                source_url: article.sourceUrl,
+                category_id: article.category,
+                status: article.status || 'draft',
+              })
+              .eq('id', article.id);
+
+            if (error) throw error;
+          } catch (error) {
+            if (attempts < 2) {
+              console.log(`Retrying update (${attempts + 1}/3)`);
+              await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempts) * 1000));
+              return updateWithRetry(attempts + 1);
+            }
+            throw error;
+          }
+        };
+
+        await Promise.race([
+          updateWithRetry(),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Operation timed out')), 60000)
+          )
+        ]);
+
+        clearTimeout(timeoutId);
+        if (isTimedOut) throw new Error('Operation timed out');
+      } catch (error) {
+        clearTimeout(timeoutId);
+        console.error('Update article error:', error);
+        throw new Error(error instanceof Error ? error.message : 'Failed to update article');
       }
     },
     onSuccess: () => {
@@ -132,45 +180,94 @@ export const useNewsArticles = (statusFilter: NewsStatus) => {
     }
   });
 
-  // Delete article mutation
+  // Delete article mutation with enhanced error handling
   const deleteArticleMutation = useMutation({
     mutationFn: async (id: string) => {
-      console.log('Deleting article:', id);
-      
-      // Get the image path first
-      const { data: article } = await supabase
-        .from('news')
-        .select('image_path')
-        .eq('id', id)
-        .single();
-      
-      // Delete the article
-      const { error } = await supabase
-        .from('news')
-        .delete()
-        .eq('id', id);
-      
-      if (error) {
-        console.error('Error deleting article:', error);
-        throw error;
-      }
-      
-      // If there's an image stored in Supabase, delete it
-      if (article?.image_path && article.image_path.includes('news-images')) {
-        try {
-          // Extract the path after the bucket name in the URL
-          const urlParts = article.image_path.split('news-images/');
-          if (urlParts.length > 1) {
-            const filePath = urlParts[1];
-            await supabase.storage.from('news-images').remove([filePath]);
-          }
-        } catch (err) {
-          console.error('Failed to delete image from storage:', err);
-          // Continue anyway as the article is already deleted
+      let isTimedOut = false;
+      const timeoutId = setTimeout(() => {
+        isTimedOut = true;
+      }, 60000); // Increased to 60 seconds
+
+      try {
+        console.log('Deleting article:', id);
+        
+        // Get the image path first
+        const fetchResult = await Promise.race<PostgrestSingleResponse<{ image_path: string }>>([
+          supabase
+            .from('news')
+            .select('image_path')
+            .eq('id', id)
+            .single(),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Operation timed out')), 60000)
+          )
+        ]);
+        
+        if (isTimedOut) throw new Error('Operation timed out');
+        
+        if (fetchResult && 'error' in fetchResult && fetchResult.error) {
+          throw fetchResult.error;
         }
+        
+        const article = fetchResult && 'data' in fetchResult ? fetchResult.data : null;
+        
+        // Delete the article with retry logic
+        const deleteWithRetry = async (attempts = 0): Promise<void> => {
+          try {
+            const { error } = await supabase
+              .from('news')
+              .delete()
+              .eq('id', id);
+            
+            if (error) throw error;
+          } catch (error) {
+            if (attempts < 2) {
+              console.log(`Retrying delete (${attempts + 1}/3)`);
+              await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempts) * 1000));
+              return deleteWithRetry(attempts + 1);
+            }
+            throw error;
+          }
+        };
+
+        await Promise.race([
+          deleteWithRetry(),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Operation timed out')), 60000)
+          )
+        ]);
+
+        if (isTimedOut) throw new Error('Operation timed out');
+        
+        // If there's an image stored in Supabase, delete it
+        if (article?.image_path && article.image_path.includes('news-images')) {
+          try {
+            const urlParts = article.image_path.split('news-images/');
+            if (urlParts.length > 1) {
+              const filePath = urlParts[1];
+              await Promise.race([
+                supabase.storage
+                  .from('news-images')
+                  .remove([filePath]),
+                new Promise((_, reject) => 
+                  setTimeout(() => reject(new Error('Operation timed out')), 60000)
+                )
+              ]);
+            }
+          } catch (err) {
+            console.error('Failed to delete image from storage:', err);
+            // Continue anyway as the article is already deleted
+          }
+        }
+
+        clearTimeout(timeoutId);
+      } catch (error: any) {
+        clearTimeout(timeoutId);
+        console.error('Delete article error:', error);
+        throw new Error(error instanceof Error ? error.message : 'Failed to delete article');
       }
     },
-    onSuccess: () => {
+    onSuccess: (_, deletedId) => {
       console.log('Article deleted successfully');
       queryClient.invalidateQueries({ queryKey: ['news'] });
       toast.success('Article deleted successfully');
@@ -182,6 +279,7 @@ export const useNewsArticles = (statusFilter: NewsStatus) => {
   });
 
   return {
+    isError: newsData === undefined && !newsLoading,
     newsData,
     newsLoading,
     createArticleMutation,
