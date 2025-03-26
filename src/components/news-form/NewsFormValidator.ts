@@ -27,6 +27,10 @@ export const validateNewsForm = (formData: NewsArticle, imageFile: File | null):
   if (!formData.category) {
     errors.category = "Category is required";
   }
+
+  if (formData.timestamp && isNaN(Date.parse(formData.timestamp))) {
+    errors.timestamp = "Invalid date format";
+  }
   
   return errors;
 };

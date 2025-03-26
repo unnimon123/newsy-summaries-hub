@@ -98,6 +98,24 @@ const NewsFormContent = ({ formData, errors, onChange, onImageChange }: NewsForm
           Word count: {calculateWordCount(formData.summary)}/60
         </div>
       </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="news_date">News Date (Optional)</Label>
+        <Input
+          type="date"
+          id="news_date"
+          name="news_date"
+          value={formData.timestamp ? formData.timestamp.split('T')[0] : ''}
+          onChange={(e) => {
+            const date = e.target.value;
+            onChange('timestamp', date ? `${date}T00:00:00` : '');
+          }}
+          className={errors.timestamp ? "border-red-500" : ""}
+        />
+        {errors.timestamp && (
+          <p className="text-sm text-red-500">{errors.timestamp}</p>
+        )}
+      </div>
       
       <ImageUploader 
         initialImageUrl={formData.imageUrl}

@@ -16,6 +16,7 @@ export interface NewsArticle {
   timestamp?: string;
   viewCount?: number;
   status?: "draft" | "published";
+  news_timestamp?: string;
 }
 
 interface NewsFormProps {
@@ -109,6 +110,7 @@ const NewsForm = ({ article, onSubmit, onCancel }: NewsFormProps) => {
         imageUrl: finalImageUrl,
         status: publishStatus || formData.status || "draft",
         timestamp: new Date().toISOString(),
+        news_timestamp: formData.news_timestamp || null
       });
       
       toast.success(article ? "Article updated successfully" : "Article created successfully");
