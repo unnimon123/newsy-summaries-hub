@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient, UseQueryResult } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { PostgrestResponse, PostgrestSingleResponse } from '@supabase/supabase-js';
+import { PostgrestResponse, PostgrestSingleResponse, SupabaseClient } from '@supabase/supabase-js';
 import { toast } from "sonner";
 import { NewsArticle } from "@/components/NewsForm";
 
@@ -180,89 +180,19 @@ export const useNewsArticles = (statusFilter: NewsStatus) => {
     }
   });
 
-  // Delete article mutation with enhanced error handling
+  // Delete article mutation with simple delete operation
   const deleteArticleMutation = useMutation({
     mutationFn: async (id: string) => {
-      let isTimedOut = false;
-      const timeoutId = setTimeout(() => {
-        isTimedOut = true;
-      }, 60000); // Increased to 60 seconds
-
       try {
         console.log('Deleting article:', id);
         
-        // Get the image path first
-        const fetchResult = await Promise.race<PostgrestSingleResponse<{ image_path: string }>>([
-          supabase
-            .from('news')
-            .select('image_path')
-            .eq('id', id)
-            .single(),
-          new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Operation timed out')), 60000)
-          )
-        ]);
-        
-        if (isTimedOut) throw new Error('Operation timed out');
-        
-        if (fetchResult && 'error' in fetchResult && fetchResult.error) {
-          throw fetchResult.error;
-        }
-        
-        const article = fetchResult && 'data' in fetchResult ? fetchResult.data : null;
-        
-        // Delete the article with retry logic
-        const deleteWithRetry = async (attempts = 0): Promise<void> => {
-          try {
-            const { error } = await supabase
-              .from('news')
-              .delete()
-              .eq('id', id);
-            
-            if (error) throw error;
-          } catch (error) {
-            if (attempts < 2) {
-              console.log(`Retrying delete (${attempts + 1}/3)`);
-              await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempts) * 1000));
-              return deleteWithRetry(attempts + 1);
-            }
-            throw error;
-          }
-        };
+        const { error } = await supabase
+          .from('news')
+          .delete()
+          .eq('id', id);
 
-        await Promise.race([
-          deleteWithRetry(),
-          new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Operation timed out')), 60000)
-          )
-        ]);
-
-        if (isTimedOut) throw new Error('Operation timed out');
-        
-        // If there's an image stored in Supabase, delete it
-        if (article?.image_path && article.image_path.includes('news-images')) {
-          try {
-            const urlParts = article.image_path.split('news-images/');
-            if (urlParts.length > 1) {
-              const filePath = urlParts[1];
-              await Promise.race([
-                supabase.storage
-                  .from('news-images')
-                  .remove([filePath]),
-                new Promise((_, reject) => 
-                  setTimeout(() => reject(new Error('Operation timed out')), 60000)
-                )
-              ]);
-            }
-          } catch (err) {
-            console.error('Failed to delete image from storage:', err);
-            // Continue anyway as the article is already deleted
-          }
-        }
-
-        clearTimeout(timeoutId);
+        if (error) throw error;
       } catch (error: any) {
-        clearTimeout(timeoutId);
         console.error('Delete article error:', error);
         throw new Error(error instanceof Error ? error.message : 'Failed to delete article');
       }
