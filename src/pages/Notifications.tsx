@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import MainLayout from "@/components/MainLayout";
@@ -65,7 +64,7 @@ const Notifications = () => {
     };
   };
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = async (retryCount = 0) => {
     setIsLoading(true);
     try {
       // Fetch sent notifications
@@ -89,11 +88,27 @@ const Notifications = () => {
 
       if (scheduledError) throw scheduledError;
 
+      // If no data is returned and we haven't exceeded retries, try again
+      if (!sentData && !scheduledData && retryCount < 3) {
+        console.log(`Retrying fetch attempt ${retryCount + 1}`);
+        // Wait for a short delay before retrying
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        return fetchNotifications(retryCount + 1);
+      }
+
       setSentNotifications(sentData ? sentData.map(mapSupabaseNotification) : []);
       setScheduledNotifications(scheduledData ? scheduledData.map(mapSupabaseNotification) : []);
     } catch (error) {
       console.error("Error fetching notifications:", error);
-      toast.error("Failed to load notifications");
+      // Only show error toast on final retry
+      if (retryCount >= 2) {
+        toast.error("Failed to load notifications");
+      }
+      // Retry on error if we haven't exceeded retries
+      if (retryCount < 3) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        return fetchNotifications(retryCount + 1);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -109,7 +124,7 @@ const Notifications = () => {
       const deepLink = data.linkToArticle ? `edushorts://articles/${data.linkToArticle}` : undefined;
       
       // Create notification in database using our service
-      await pushNotificationService.createNotification({
+      const createdNotification = await pushNotificationService.createNotification({
         title: data.title,
         body: data.body,
         type: "push",
@@ -130,6 +145,12 @@ const Notifications = () => {
             body: data.body,
             deep_link: deepLink
           });
+          
+          // Mark notification as sent and wait for confirmation
+          await pushNotificationService.markNotificationAsSent(createdNotification.id);
+          
+          // Add a small delay before fetching to ensure DB consistency
+          await new Promise(resolve => setTimeout(resolve, 1000));
         } else {
           toast.warning(
             "No registered devices found. Users need to install the app and grant notification permissions first.",
@@ -138,7 +159,7 @@ const Notifications = () => {
         }
       }
       
-      // Refresh notifications list
+      // Refresh notifications list with retries
       await fetchNotifications();
       
       return Promise.resolve();

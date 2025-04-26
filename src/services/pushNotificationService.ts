@@ -199,7 +199,7 @@ export class ExpoNotificationService {
     expo_push_token?: string;
   }) {
     try {
-      const { data, error } = await supabase
+      const { data: newNotification, error } = await supabase
         .from('notifications')
         .insert({
           title: notification.title,
@@ -215,9 +215,43 @@ export class ExpoNotificationService {
         .single();
 
       if (error) throw error;
-      return data;
+      if (!newNotification) {
+        throw new Error('Failed to create notification: No data returned');
+      }
+      return newNotification;
     } catch (error) {
       console.error('Error creating notification:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update sent_at timestamp for a notification
+   */
+  async markNotificationAsSent(notificationId: string): Promise<void> {
+    try {
+      // First mark as sent
+      const { error: updateError } = await supabase
+        .from('notifications')
+        .update({ sent_at: new Date().toISOString() })
+        .eq('id', notificationId);
+
+      if (updateError) throw updateError;
+
+      // Verify the update
+      const { data: updatedNotification, error: verifyError } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('id', notificationId)
+        .single();
+
+      if (verifyError) throw verifyError;
+
+      if (!updatedNotification.sent_at) {
+        throw new Error('Failed to update sent_at timestamp');
+      }
+    } catch (error) {
+      console.error('Error updating notification sent_at:', error);
       throw error;
     }
   }
