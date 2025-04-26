@@ -7,9 +7,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Clock, Send, Trash2, User } from "lucide-react";
+import { Clock, Send, Trash2, User, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { pushNotificationService } from "@/services/pushNotificationService";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
+import { NotificationMetrics } from "@/components/notification-monitoring/NotificationMetrics";
 
 // Define the interface for notifications as they come from Supabase
 interface SupabaseNotification {
@@ -17,7 +20,9 @@ interface SupabaseNotification {
   title: string;
   body: string;
   target_audience: string;
+  type: string;
   link_to_article: string | null;
+  deep_link: string | null;
   sent_at: string | null;
   scheduled_for: string | null;
   created_at: string;
@@ -29,12 +34,15 @@ interface NotificationWithId extends NotificationData {
   id: string;
   sent_at?: string;
   scheduled_for?: string;
+  deep_link?: string;
+  type: string;
 }
 
 const Notifications = () => {
   const [sentNotifications, setSentNotifications] = useState<NotificationWithId[]>([]);
   const [scheduledNotifications, setScheduledNotifications] = useState<NotificationWithId[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const { user } = useAuth();
 
   useEffect(() => {
     fetchNotifications();
@@ -48,10 +56,12 @@ const Notifications = () => {
       body: data.body,
       targetAudience: data.target_audience,
       linkToArticle: data.link_to_article || undefined,
+      deep_link: data.deep_link || undefined,
       scheduleLater: !!data.scheduled_for,
       scheduledTime: data.scheduled_for || undefined,
       sent_at: data.sent_at || undefined,
-      scheduled_for: data.scheduled_for || undefined
+      scheduled_for: data.scheduled_for || undefined,
+      type: data.type
     };
   };
 
@@ -62,6 +72,7 @@ const Notifications = () => {
       const { data: sentData, error: sentError } = await supabase
         .from('notifications')
         .select('*')
+        .eq('type', 'push')
         .not('sent_at', 'is', null)
         .order('sent_at', { ascending: false });
 
@@ -71,6 +82,7 @@ const Notifications = () => {
       const { data: scheduledData, error: scheduledError } = await supabase
         .from('notifications')
         .select('*')
+        .eq('type', 'push')
         .is('sent_at', null)
         .not('scheduled_for', 'is', null)
         .order('scheduled_for', { ascending: true });
@@ -89,20 +101,42 @@ const Notifications = () => {
 
   const handleSendNotification = async (data: NotificationData) => {
     try {
-      const notificationData = {
+      if (!user) {
+        throw new Error("User not authenticated");
+      }
+
+      // Create deep link if article link is provided
+      const deepLink = data.linkToArticle ? `edushorts://articles/${data.linkToArticle}` : undefined;
+      
+      // Create notification in database using our service
+      await pushNotificationService.createNotification({
         title: data.title,
         body: data.body,
+        type: "push",
         target_audience: data.targetAudience,
-        link_to_article: data.linkToArticle || null,
+        link_to_article: data.linkToArticle || "",
         scheduled_for: data.scheduleLater ? data.scheduledTime : null,
-        sent_at: data.scheduleLater ? null : new Date().toISOString(),
-      };
+        created_by: user.id
+      });
 
-      const { error } = await supabase
-        .from('notifications')
-        .insert(notificationData);
-
-      if (error) throw error;
+      // Send push notification immediately if not scheduled
+      if (!data.scheduleLater) {
+        // Get target tokens
+        const tokens = await pushNotificationService.getTargetTokens(data.targetAudience);
+        
+        if (tokens.length > 0) {
+          await pushNotificationService.sendNotification(tokens, {
+            title: data.title,
+            body: data.body,
+            deep_link: deepLink
+          });
+        } else {
+          toast.warning(
+            "No registered devices found. Users need to install the app and grant notification permissions first.",
+            { duration: 5000 }
+          );
+        }
+      }
       
       // Refresh notifications list
       await fetchNotifications();
@@ -158,6 +192,12 @@ const Notifications = () => {
           </p>
         </div>
 
+        {/* Metrics Section */}
+        <div className="w-full">
+          <NotificationMetrics />
+        </div>
+
+        {/* Form and History Section */}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <NotificationForm onSubmit={handleSendNotification} />
 
@@ -195,13 +235,28 @@ const Notifications = () => {
                             Sent: {notification.sent_at && formatDate(notification.sent_at)}
                           </CardDescription>
                         </div>
-                        <Badge variant="outline" className="bg-blue-50 text-blue-700">
-                          {getAudienceLabel(notification.targetAudience)}
-                        </Badge>
+                        <div className="flex gap-2">
+                          {notification.sent_at && (
+                            <Badge variant="outline" className="bg-green-50 text-green-700">
+                              Sent
+                            </Badge>
+                          )}
+                          <Badge variant="outline" className="bg-blue-50 text-blue-700">
+                            {getAudienceLabel(notification.targetAudience)}
+                          </Badge>
+                        </div>
                       </div>
                     </CardHeader>
                     <CardContent>
                       <p className="text-sm text-gray-600">{notification.body}</p>
+                      {notification.deep_link && (
+                        <div className="mt-2">
+                          <span className="text-xs text-gray-500">Deep Link: </span>
+                          <span className="text-xs font-mono text-blue-600">
+                            {notification.deep_link}
+                          </span>
+                        </div>
+                      )}
                       {notification.linkToArticle && (
                         <div className="mt-2">
                           <span className="text-xs text-gray-500">Link: </span>
@@ -257,6 +312,15 @@ const Notifications = () => {
                     <CardContent>
                       <div className="space-y-2">
                         <p className="text-sm text-gray-600">{notification.body}</p>
+                        
+                        {notification.deep_link && (
+                          <div className="mt-2">
+                            <span className="text-xs text-gray-500">Deep Link: </span>
+                            <span className="text-xs font-mono text-blue-600">
+                              {notification.deep_link}
+                            </span>
+                          </div>
+                        )}
                         
                         <div className="flex items-center text-xs text-gray-500">
                           <User className="mr-1 h-3 w-3" />

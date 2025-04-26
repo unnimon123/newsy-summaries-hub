@@ -23,6 +23,7 @@ export interface NotificationData {
   body: string;
   targetAudience: string;
   linkToArticle?: string;
+  deep_link?: string;
   scheduleLater: boolean;
   scheduledTime?: string;
 }
@@ -33,6 +34,7 @@ const NotificationForm = ({ onSubmit }: NotificationFormProps) => {
     body: "",
     targetAudience: "all",
     linkToArticle: "",
+    deep_link: "",
     scheduleLater: false,
     scheduledTime: "",
   });
@@ -108,6 +110,7 @@ const NotificationForm = ({ onSubmit }: NotificationFormProps) => {
         body: "",
         targetAudience: "all",
         linkToArticle: "",
+        deep_link: "",
         scheduleLater: false,
         scheduledTime: "",
       });
