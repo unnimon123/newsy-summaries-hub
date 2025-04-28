@@ -9,7 +9,8 @@ import {
   Newspaper,
   X,
   User,
-  LogOut
+  LogOut,
+  DollarSign
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -51,6 +52,7 @@ const Sidebar = () => {
   const adminRoutes = [
     { path: "/news", label: "News Management", icon: Newspaper },
     { path: "/analytics", label: "Analytics", icon: BarChart3 },
+    { path: "/advertisement", label: "Advertisements", icon: DollarSign },
   ];
 
   // Combine routes based on user role

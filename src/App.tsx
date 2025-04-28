@@ -12,6 +12,7 @@ import Index from "./pages/Index";
 import NewsManagement from "./pages/NewsManagement";
 import Notifications from "./pages/Notifications";
 import Analytics from "./pages/Analytics";
+import Advertisement from "./pages/Advertisement";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Auth/Login";
 import Register from "./pages/Auth/Register";
@@ -58,6 +59,7 @@ const App = () => (
                 <Route element={<AdminRoute />}>
                   <Route path="/news" element={<NewsManagement />} />
                   <Route path="/analytics" element={<Analytics />} />
+                  <Route path="/advertisement" element={<Advertisement />} />
                 </Route>
               </Route>
               
