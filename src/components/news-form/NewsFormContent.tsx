@@ -29,7 +29,7 @@ const NewsFormContent = ({ formData, errors, onChange, onImageChange }: NewsForm
         .select('*')
         .eq('is_active', true)
         .order('name');
-      
+
       if (error) throw error;
       return data;
     }
@@ -56,12 +56,12 @@ const NewsFormContent = ({ formData, errors, onChange, onImageChange }: NewsForm
     value: cat.id,
     label: cat.name
   })) || [
-    { value: "education", label: "Foreign Education" },
-    { value: "visa", label: "Visas" },
-    { value: "scholarship", label: "Scholarships" },
-    { value: "course", label: "Courses" },
-    { value: "immigration", label: "Immigration" },
-  ];
+      { value: "education", label: "Foreign Education" },
+      { value: "visa", label: "Visas" },
+      { value: "scholarship", label: "Scholarships" },
+      { value: "course", label: "Courses" },
+      { value: "immigration", label: "Immigration" },
+    ];
 
   return (
     <div className="space-y-4">
@@ -78,10 +78,10 @@ const NewsFormContent = ({ formData, errors, onChange, onImageChange }: NewsForm
           <p className="text-sm text-red-500">{errors.title}</p>
         )}
       </div>
-      
+
       <div className="space-y-2">
         <Label htmlFor="summary">
-          Summary <span className="text-sm text-gray-500">(60 words max)</span>
+          Summary <span className="text-sm text-gray-500">(100 words max)</span>
         </Label>
         <Textarea
           id="summary"
@@ -95,7 +95,7 @@ const NewsFormContent = ({ formData, errors, onChange, onImageChange }: NewsForm
           <p className="text-sm text-red-500">{errors.summary}</p>
         )}
         <div className="text-sm text-gray-500">
-          Word count: {calculateWordCount(formData.summary)}/60
+          Word count: {calculateWordCount(formData.summary)}/100
         </div>
       </div>
 
@@ -116,13 +116,13 @@ const NewsFormContent = ({ formData, errors, onChange, onImageChange }: NewsForm
           <p className="text-sm text-red-500">{errors.timestamp}</p>
         )}
       </div>
-      
-      <ImageUploader 
+
+      <ImageUploader
         initialImageUrl={formData.imageUrl}
         onImageChange={handleImageChangeEvent}
         error={errors.imageUrl || errors.imageFile}
       />
-      
+
       <div className="space-y-2">
         <Label htmlFor="sourceUrl">Source URL</Label>
         <Input
@@ -136,7 +136,7 @@ const NewsFormContent = ({ formData, errors, onChange, onImageChange }: NewsForm
           <p className="text-sm text-red-500">{errors.sourceUrl}</p>
         )}
       </div>
-      
+
       <div className="space-y-2">
         <Label htmlFor="category">Category</Label>
         <Select

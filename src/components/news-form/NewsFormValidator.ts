@@ -5,25 +5,25 @@ export type FormErrors = Record<string, string>;
 
 export const validateNewsForm = (formData: NewsArticle, imageFile: File | null): FormErrors => {
   const errors: FormErrors = {};
-  
+
   if (!formData.title.trim()) {
     errors.title = "Title is required";
   }
-  
+
   if (!formData.summary.trim()) {
     errors.summary = "Summary is required";
-  } else if (formData.summary.split(/\s+/).length > 60) {
-    errors.summary = "Summary must be 60 words or less";
+  } else if (formData.summary.split(/\s+/).length > 100) {
+    errors.summary = "Summary must be 100 words or less";
   }
-  
+
   if (!imageFile && !formData.imageUrl) {
     errors.imageUrl = "Image is required";
   }
-  
+
   if (!formData.sourceUrl.trim()) {
     errors.sourceUrl = "Source URL is required";
   }
-  
+
   if (!formData.category) {
     errors.category = "Category is required";
   }
@@ -31,7 +31,7 @@ export const validateNewsForm = (formData: NewsArticle, imageFile: File | null):
   if (formData.timestamp && isNaN(Date.parse(formData.timestamp))) {
     errors.timestamp = "Invalid date format";
   }
-  
+
   return errors;
 };
 
